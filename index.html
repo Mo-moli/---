@@ -1,848 +1,179 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>醫師勾選單｜下單系統（Web）</title>
-  <!-- TailwindCSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8">
+  <title>醫師勾選單 - 購物車範例</title>
   <style>
-    /* 列印友善：隱藏互動、保留表格 */
-    @media print {
-      .no-print { display: none !important; }
-      .print-only { display: block !important; }
-      .shadow, .shadow-md, .shadow-lg { box-shadow: none !important; }
-      body { zoom: 0.9; }
-    }
+    body { font-family: sans-serif; padding: 20px; }
+    h1 { text-align: center; }
+    .products, .cart { margin: 20px 0; }
+    .item { border: 1px solid #ccc; padding: 10px; margin: 5px; display: inline-block; width: 180px; text-align: center; }
+    button { margin-top: 5px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
   </style>
 </head>
-<body class="bg-slate-100 text-slate-800">
-  <!-- 頂部欄 -->
-  <header class="bg-slate-800 text-white py-4 shadow">
-    <div class="max-w-7xl mx-auto px-4 flex flex-col lg:flex-row items-start lg:items-center gap-3">
-      <h1 class="text-2xl font-bold tracking-widest">醫師勾選單</h1>
-      <div class="flex-1"></div>
-      <div class="flex flex-wrap items-center gap-3 text-slate-200 no-print">
-        <label class="text-sm">日期
-          <input id="dateInput" type="date" class="ml-2 rounded border border-slate-500 bg-slate-900 px-2 py-1 text-sm" />
-        </label>
-        <label class="text-sm">單號
-          <input id="orderNoInput" type="text" placeholder="選填" class="ml-2 rounded border border-slate-500 bg-slate-900 px-2 py-1 text-sm" />
-        </label>
-        <button id="printBtn" class="ml-2 rounded bg-white/10 hover:bg-white/20 px-3 py-1 text-sm">列印</button>
-      </div>
-    </div>
-  </header>
+<body>
 
-  <!-- 主容器：四欄（桌面）；兩欄（平板）；單欄（手機） -->
-  <main class="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-    <!-- 三欄：套組區 -->
-    <section id="bundlesCol" class="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"></section>
+<h1>醫師勾選單</h1>
 
-    <!-- 右欄：單品 + 組合優惠（依圖片版面） -->
-    <section class="space-y-6">
-      <div class="bg-white rounded-xl shadow-md border border-slate-200">
-        <div class="bg-slate-700 text-white rounded-t-xl px-4 py-2 font-bold tracking-widest">單品價格表</div>
-        <div id="singlesList" class="p-3 divide-y"></div>
-      </div>
+<!-- 單品區 -->
+<div class="products">
+  <h2>單品</h2>
+  <div id="product-list"></div>
+</div>
 
-      <div class="bg-white rounded-xl shadow-md border border-slate-200">
-        <div class="bg-slate-700 text-white rounded-t-xl px-4 py-2 font-bold tracking-widest">組合優惠價</div>
-        <div id="combosList" class="p-3 space-y-4"></div>
-      </div>
-    </section>
-  </main>
+<!-- 套組區 -->
+<div class="products">
+  <h2>套組</h2>
+  <div id="bundle-list"></div>
+</div>
 
-  <!-- 右側固定購物車（桌面固定；手機為抽屜） -->
-  <aside id="cartPanel" class="no-print fixed right-4 top-24 bottom-4 w-[360px] hidden lg:flex flex-col bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
-    <div class="bg-slate-700 text-white px-4 py-2 font-bold tracking-widest flex items-center justify-between">
-      <span>購物車</span>
-      <button id="clearCartBtn" class="text-xs bg-white/10 hover:bg-white/20 rounded px-2 py-1">清空</button>
-    </div>
-    <div id="cartItems" class="flex-1 overflow-auto p-3 space-y-3"></div>
-    <div class="border-t p-3 space-y-2 text-sm">
-      <div class="flex justify-between"><span>小計</span><span id="subtotalText">$0</span></div>
-      <div class="flex justify-between"><span>折扣（顯示用）</span><span id="discountText">$0</span></div>
-      <div class="flex justify-between"><span>運費</span><span id="shippingText">$0</span></div>
-      <div class="border-t pt-2 font-bold flex justify-between text-lg"><span>總計</span><span id="grandText">$0</span></div>
-    </div>
-    <div class="border-t p-3 space-y-3 text-sm">
-      <div>
-        <div class="font-semibold mb-1">付款</div>
-        <div class="flex flex-wrap gap-3">
-          <label class="inline-flex items-center gap-1"><input type="checkbox" id="payCash"> 現金</label>
-          <label class="inline-flex items-center gap-1"><input type="checkbox" id="payBank"> 轉帳</label>
-          <label class="inline-flex items-center gap-1"><input type="checkbox" id="payTax"> 統編</label>
-          <input id="taxIdInput" type="text" placeholder="統編" class="hidden border rounded px-2 py-1" />
-          <label class="inline-flex items-center gap-1"><input type="checkbox" id="payCarrier"> 載具</label>
-          <input id="carrierInput" type="text" placeholder="載具條碼" class="hidden border rounded px-2 py-1" />
-        </div>
-      </div>
-      <div>
-        <div class="font-semibold mb-1">交付</div>
-        <div class="flex flex-wrap gap-3">
-          <label class="inline-flex items-center gap-1"><input type="radio" name="delivery" value="pickup"> 自取</label>
-          <label class="inline-flex items-center gap-1"><input type="radio" name="delivery" value="ship"> 郵寄</label>
-          <input id="addressInput" type="text" placeholder="郵寄地址（若選郵寄）" class="hidden border rounded px-2 py-1 w-full" />
-        </div>
-      </div>
-      <div>
-        <div class="font-semibold mb-1">備註</div>
-        <textarea id="noteInput" rows="2" class="w-full border rounded px-2 py-1" placeholder="備註…"></textarea>
-      </div>
-      <button id="submitBtn" class="w-full bg-slate-800 text-white rounded-lg py-2 hover:bg-slate-700">送出訂單</button>
-      <div id="errorBox" class="hidden text-red-600 text-xs"></div>
-    </div>
-  </aside>
+<!-- 購物車 -->
+<div class="cart">
+  <h2>購物車</h2>
+  <table>
+    <thead>
+      <tr><th>品項</th><th>數量</th><th>小計</th><th>操作</th></tr>
+    </thead>
+    <tbody id="cart-body"></tbody>
+  </table>
+  <h3 id="total">總計：$0</h3>
+</div>
 
-  <!-- 手機：購物車浮動鈕與抽屜 -->
-  <button id="mobileCartBtn" class="no-print lg:hidden fixed bottom-4 right-4 z-50 bg-slate-800 text-white rounded-full px-4 py-3 shadow-xl">購物車 (<span id="mobileCartCount">0</span>)</button>
-  <div id="mobileDrawer" class="no-print fixed inset-0 bg-black/40 hidden lg:hidden">
-    <div class="absolute inset-x-0 bottom-0 bg-white rounded-t-2xl max-h-[85%] flex flex-col">
-      <div class="px-4 py-3 border-b flex items-center justify-between">
-        <div class="font-bold">購物車</div>
-        <button id="mobileClose" class="text-slate-500">關閉</button>
-      </div>
-      <div class="flex-1 overflow-auto p-3 space-y-3" id="mCartItems"></div>
-      <div class="border-t p-3 space-y-2 text-sm">
-        <div class="flex justify-between"><span>小計</span><span id="mSubtotal">$0</span></div>
-        <div class="flex justify-between"><span>折扣</span><span id="mDiscount">$0</span></div>
-        <div class="flex justify-between"><span>運費</span><span id="mShipping">$0</span></div>
-        <div class="border-t pt-2 font-bold flex justify-between text-lg"><span>總計</span><span id="mGrand">$0</span></div>
-      </div>
-      <div class="p-3 space-y-2 text-sm">
-        <div>
-          <div class="font-semibold mb-1">付款</div>
-          <div class="flex flex-wrap gap-3">
-            <label class="inline-flex items-center gap-1"><input type="checkbox" id="mPayCash"> 現金</label>
-            <label class="inline-flex items-center gap-1"><input type="checkbox" id="mPayBank"> 轉帳</label>
-            <label class="inline-flex items-center gap-1"><input type="checkbox" id="mPayTax"> 統編</label>
-            <input id="mTaxId" type="text" placeholder="統編" class="hidden border rounded px-2 py-1" />
-            <label class="inline-flex items-center gap-1"><input type="checkbox" id="mPayCarrier"> 載具</label>
-            <input id="mCarrier" type="text" placeholder="載具條碼" class="hidden border rounded px-2 py-1" />
-          </div>
-        </div>
-        <div>
-          <div class="font-semibold mb-1">交付</div>
-          <div class="flex flex-wrap gap-3">
-            <label class="inline-flex items-center gap-1"><input type="radio" name="mDelivery" value="pickup"> 自取</label>
-            <label class="inline-flex items-center gap-1"><input type="radio" name="mDelivery" value="ship"> 郵寄</label>
-            <input id="mAddress" type="text" placeholder="郵寄地址（若選郵寄）" class="hidden border rounded px-2 py-1 w-full" />
-          </div>
-        </div>
-        <textarea id="mNote" rows="2" class="w-full border rounded px-2 py-1" placeholder="備註…"></textarea>
-        <button id="mSubmit" class="w-full bg-slate-800 text-white rounded-lg py-2 hover:bg-slate-700">送出訂單</button>
-        <div id="mError" class="hidden text-red-600 text-xs"></div>
-      </div>
-    </div>
-  </div>
+<script>
+// 單品資料
+const products = [
+  { id: "mnt_protein", name: "MNT 蛋白粉", price: 1880 },
+  { id: "light_digest", name: "暢便輕", price: 1200 },
+  { id: "wei_shijia", name: "衛適佳", price: 1200 },
+  { id: "jiao_yuan_c", name: "嬌圓C", price: 1200 },
+  { id: "morning_capsule", name: "早安膠囊", price: 900 },
+  { id: "night_chew", name: "晚安咀嚼錠", price: 900 },
+  { id: "oil_cut", name: "油澱雙切", price: 600 },
+  { id: "elite", name: "優先盈", price: 1500 },
+  { id: "clean_mouth", name: "清口樂", price: 600 },
+  { id: "double_l", name: "雙L益菌糖", price: 1200 },
+  { id: "fish_oil", name: "黃晶魚油", price: 1300 },
+  { id: "night_relax", name: "夜允眠", price: 1300 },
+  { id: "sensitive", name: "允敏通", price: 1300 },
+  { id: "berry", name: "允媄莓", price: 1300 }
+];
 
-  <!-- 資料與邏輯腳本 -->
-  <script>
-    // ====== 資料：菜單（已修正 singles 重複 ID） ======
-    window.menuData = {
-      bundles: [
-        {
-          id: "classic",
-          title: "經典套組",
-          displayPrice: 15000,
-          minPrice: 16140,
-          note: "初/複診可搭 $15,000",
-          items: [
-            { name: "MNT 蛋白粉（1罐2袋）", displayQty: 3 },
-            { name: "暢便輕", displayQty: 2 },
-            { name: "衛適佳", displayQty: 1 },
-            { name: "嬌圓C", displayQty: 2 },
-            { name: "早安膠囊", displayQty: 1 },
-            { name: "晚安咀嚼錠", displayQty: 1 },
-            { name: "油澱雙切", displayQty: 1 },
-            { name: "優先盈", displayQty: 1 },
-            { name: "清口樂", displayQty: 1 },
-            { name: "4+2R 追蹤", displayQty: 1 },
-          ],
-        },
-        {
-          id: "upgrade",
-          title: "超值升級套組",
-          displayPrice: 30000,
-          minPrice: 33340,
-          note: "初/複診可搭 $30,000",
-          items: [
-            { name: "MNT 蛋白粉（3罐5袋）", displayQty: 8 },
-            { name: "暢便輕", displayQty: 4 },
-            { name: "衛適佳", displayQty: 2 },
-            { name: "嬌圓C", displayQty: 3 },
-            { name: "早安膠囊", displayQty: 2 },
-            { name: "晚安咀嚼錠", displayQty: 2 },
-            { name: "油澱雙切", displayQty: 1 },
-            { name: "優先盈", displayQty: 1 },
-            { name: "清口樂", displayQty: 1 },
-            { name: "雙L 益菌糖", displayQty: 1 },
-            { name: "4+2R 追蹤", displayQty: 2 },
-          ],
-        },
-        {
-          id: "light",
-          title: "輕盈套組",
-          displayPrice: 9800,
-          minPrice: 9840,
-          note: "限診搭 $9,800",
-          items: [
-            { name: "MNT 蛋白粉（2罐）", displayQty: 3 },
-            { name: "暢便輕", displayQty: 1 },
-            { name: "衛適佳", displayQty: 1 },
-            { name: "嬌圓C", displayQty: 1 },
-            { name: "4+2R 追蹤", displayQty: 1 },
-          ],
-        },
-      ],
-      singles: [
-        { id: "mnt",       name: "MNT 蛋白粉", unitPrice: 1880 },
-        { id: "chang",     name: "暢便輕", unitPrice: 1200 },
-        { id: "wei",       name: "衛適佳", unitPrice: 1200 },
-        { id: "jiaoC",     name: "嬌圓C", unitPrice: 1200 },
-        { id: "zao",       name: "早安膠囊", unitPrice: 900 },
-        { id: "wan",       name: "晚安咀嚼錠", unitPrice: 900 },
-        { id: "youTwin",   name: "油澱雙切", unitPrice: 600 },
-        { id: "prio",      name: "優先盈", unitPrice: 1500 },
-        { id: "qingMouth", name: "清口樂", unitPrice: 600 },
-        { id: "shuangL",   name: "雙L 益菌糖", unitPrice: 1200 },
-        { id: "fishOil",   name: "黃晶魚油", unitPrice: 1300 },
-        { id: "ye",        name: "夜允眠", unitPrice: 1300 },
-        { id: "yun",       name: "允敏通", unitPrice: 1300 },
-        { id: "mei",       name: "允媄莓", unitPrice: 1300 },
-      ],
-      combos: [
-        {
-          id: "mntCombo",
-          title: "MNT 蛋白粉組合",
-          description: "1罐 或 2袋 皆 $5,000",
-          rule: { type: "variantFixed", fixedPrice: 5000, variants: [
-            { label: "1 罐", selections: [{ name: "MNT 蛋白粉（罐）", qty: 1 }] },
-            { label: "2 袋", selections: [{ name: "MNT 蛋白粉（袋）", qty: 2 }] },
-          ] },
-        },
-        {
-          id: "sixPick",
-          title: "暢/衛/C/雙L/夜/敏/莓 組合（6入任選）",
-          description: "6 入任選 $6,300",
-          rule: { type: "pickNFixed", n: 6, fixedPrice: 6300 },
-          choices: [
-            { itemId: "chang", name: "暢便輕" },
-            { itemId: "wei", name: "衛適佳" },
-            { itemId: "jiaoC", name: "嬌圓C" },
-            { itemId: "shuangL", name: "雙L 益菌糖" },
-            { itemId: "ye", name: "夜允眠" },
-            { itemId: "yun", name: "允敏通" },
-            { itemId: "mei", name: "允媄莓" },
-          ],
-        },
-        {
-          id: "threePick",
-          title: "暢/衛/C/雙L/夜/敏/莓 組合（3入任選）",
-          description: "3 入任選 $3,300",
-          rule: { type: "pickNFixed", n: 3, fixedPrice: 3300 },
-          choices: [
-            { itemId: "chang", name: "暢便輕" },
-            { itemId: "wei", name: "衛適佳" },
-            { itemId: "jiaoC", name: "嬌圓C" },
-            { itemId: "shuangL", name: "雙L 益菌糖" },
-            { itemId: "ye", name: "夜允眠" },
-            { itemId: "yun", name: "允敏通" },
-            { itemId: "mei", name: "允媄莓" },
-          ],
-        },
-        {
-          id: "morningNight",
-          title: "早晚安組合",
-          description: "4 入任選 $3,200（早安膠囊、晚安咀嚼錠）",
-          rule: { type: "pickNFixed", n: 4, fixedPrice: 3200 },
-          choices: [
-            { itemId: "zao", name: "早安膠囊" },
-            { itemId: "wan", name: "晚安咀嚼錠" },
-          ],
-        },
-        {
-          id: "goldSilver",
-          title: "金銀包組合",
-          description: "油澱雙切 ×3、優先盈 ×2，共 $5,000",
-          rule: { type: "exactMixFixed", fixedPrice: 5000, exactMix: {
-            youTwin: 3, prio: 2
-          } },
-          choices: [
-            { itemId: "youTwin", name: "油澱雙切" },
-            { itemId: "prio", name: "優先盈" },
-          ],
-        },
-        {
-          id: "gradFav",
-          title: "畢業生最愛組合",
-          description: "油澱雙切 ×3、雙L 益菌糖 ×2，共 $6,200",
-          rule: { type: "exactMixFixed", fixedPrice: 6200, exactMix: {
-            youTwin: 3, shuangL: 2
-          } },
-          choices: [
-            { itemId: "youTwin", name: "油澱雙切" },
-            { itemId: "shuangL", name: "雙L 益菌糖" },
-          ],
-        },
-        {
-          id: "tea",
-          title: "茶包組合",
-          description: "3 入任選 $1,500",
-          rule: { type: "pickNFixed", n: 3, fixedPrice: 1500 },
-          choices: [
-            { itemId: "teaA", name: "四季烏龍" },
-            { itemId: "teaB", name: "伯爵紅茶" },
-            { itemId: "teaC", name: "茉莉綠茶" },
-          ],
-        },
-      ],
-    };
+// 套組資料
+const bundles = [
+  {
+    id: "classic",
+    name: "經典套組",
+    items: [
+      { productId: "mnt_protein", qty: 3 },
+      { productId: "light_digest", qty: 2 },
+      { productId: "wei_shijia", qty: 1 },
+      { productId: "jiao_yuan_c", qty: 2 },
+      { productId: "morning_capsule", qty: 1 },
+      { productId: "night_chew", qty: 1 },
+      { productId: "oil_cut", qty: 1 },
+      { productId: "elite", qty: 1 },
+      { productId: "clean_mouth", qty: 1 }
+    ],
+    displayPrice: 15000,
+    basePrice: 16140
+  },
+  {
+    id: "upgrade",
+    name: "超值升級套組",
+    displayPrice: 30000,
+    basePrice: 33340
+  },
+  {
+    id: "slim",
+    name: "輕盈套組",
+    displayPrice: 9800,
+    basePrice: 9840
+  }
+];
 
-    // ====== 工具 ======
-    const $ = (sel, el=document) => el.querySelector(sel);
-    const $$ = (sel, el=document) => Array.from(el.querySelectorAll(sel));
-    const fmt = n => `$
-${(n||0).toLocaleString('zh-TW')}`;
+// 購物車
+let cart = [];
 
-    // ====== 狀態 ======
-    let cart = []; // 購物車條目
-    const state = { bundles: {}, combos: {} }; // UI 狀態（卡片內的臨時選擇）
+// 加入購物車
+function addToCart(itemId, type, price, name) {
+  const existing = cart.find(i => i.id === itemId && i.type === type);
+  if (existing) {
+    existing.qty += 1;
+  } else {
+    cart.push({ id: itemId, type, qty: 1, price, name });
+  }
+  renderCart();
+}
 
-    // localStorage 載入
-    try {
-      const saved = JSON.parse(localStorage.getItem('orderCartV1')||'{}');
-      if (saved.cart) cart = saved.cart;
-    } catch {}
+// 渲染購物車
+function renderCart() {
+  const tbody = document.getElementById("cart-body");
+  tbody.innerHTML = "";
+  let total = 0;
+  cart.forEach((item, idx) => {
+    const subtotal = item.price * item.qty;
+    total += subtotal;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${item.name}</td>
+      <td>${item.qty}</td>
+      <td>$${subtotal}</td>
+      <td>
+        <button onclick="changeQty(${idx}, 1)">+</button>
+        <button onclick="changeQty(${idx}, -1)">-</button>
+        <button onclick="removeItem(${idx})">刪除</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+  document.getElementById("total").innerText = "總計：$" + total;
+}
 
-    // ====== 渲染：套組卡 ======
-    function renderBundles() {
-      const wrap = document.getElementById('bundlesCol');
-      wrap.innerHTML = '';
-      menuData.bundles.forEach(b => {
-        // 狀態初始化（可在卡片中微調展示數量；不影響價格）
-        if (!state.bundles[b.id]) {
-          state.bundles[b.id] = b.items.map(it => ({ name: it.name, qty: it.displayQty }));
-        }
-        const diff = Math.max(b.minPrice - b.displayPrice, 0);
-        const card = document.createElement('div');
-        card.className = 'bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden flex flex-col';
-        card.innerHTML = `
-          <div class="bg-slate-700 text-white px-4 py-2 font-bold tracking-widest">${b.title}</div>
-          <div class="p-3 flex-1">
-            <table class="w-full text-sm border-separate [border-spacing:0]">
-              <thead>
-                <tr class="bg-slate-100 text-slate-600">
-                  <th class="text-left px-2 py-1 rounded-l">品項</th>
-                  <th class="text-right px-2 py-1 rounded-r">數量</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${state.bundles[b.id].map((it, idx) => `
-                  <tr class="border-b">
-                    <td class="px-2 py-1">${it.name}</td>
-                    <td class="px-2 py-1 text-right">
-                      <div class="inline-flex items-center gap-1">
-                        <button class="qty-dec w-6 h-6 rounded bg-slate-100 hover:bg-slate-200" data-bid="${b.id}" data-idx="${idx}">−</button>
-                        <span class="min-w-[2ch] text-center">${it.qty}</span>
-                        <button class="qty-inc w-6 h-6 rounded bg-slate-100 hover:bg-slate-200" data-bid="${b.id}" data-idx="${idx}">＋</button>
-                      </div>
-                    </td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </div>
-          <div class="px-4 pb-3 text-xs text-slate-500">（卡內數量僅供勾選記錄，不影響金額）</div>
-          <div class="px-4 pb-3 text-sm flex flex-col gap-1">
-            <div class="flex items-center gap-2">
-              <span class="inline-block rounded bg-amber-100 text-amber-700 px-2 py-0.5">折扣 $${diff.toLocaleString('zh-TW')}</span>
-              <span class="text-slate-600">${b.note}</span>
-            </div>
-            <div class="text-slate-500">（最低應付：$${b.minPrice.toLocaleString('zh-TW')}，不顯示於客端）</div>
-          </div>
-          <div class="px-4 pb-4">
-            <button class="add-bundle w-full bg-slate-800 text-white rounded-lg py-2 hover:bg-slate-700" data-bid="${b.id}">加入整組</button>
-          </div>
-        `;
-        wrap.appendChild(card);
-      });
+// 改變數量
+function changeQty(index, delta) {
+  cart[index].qty += delta;
+  if (cart[index].qty <= 0) cart.splice(index, 1);
+  renderCart();
+}
 
-      // 綁定數量調整（僅記錄）
-      wrap.addEventListener('click', (e) => {
-        const t = e.target;
-        if (t.classList.contains('qty-dec') || t.classList.contains('qty-inc')) {
-          const bid = t.getAttribute('data-bid');
-          const idx = +t.getAttribute('data-idx');
-          const list = state.bundles[bid];
-          if (!list) return;
-          if (t.classList.contains('qty-dec')) list[idx].qty = Math.max(0, list[idx].qty - 1);
-          else list[idx].qty += 1;
-          renderBundles();
-        }
-        if (t.classList.contains('add-bundle')) {
-          const bid = t.getAttribute('data-bid');
-          const b = menuData.bundles.find(x => x.id === bid);
-          if (!b) return;
-          addBundleToCart(b, state.bundles[bid]);
-        }
-      });
-    }
+// 移除項目
+function removeItem(index) {
+  cart.splice(index, 1);
+  renderCart();
+}
 
-    function addBundleToCart(bundle, compositionSnapshot) {
-      // 若同一 bundle 已存在，合併數量（忽略 composition 差異，以簡化流程）
-      const found = cart.find(x => x.type==='bundle' && x.bundleId===bundle.id);
-      if (found) found.qty += 1;
-      else cart.push({
-        type: 'bundle',
-        bundleId: bundle.id,
-        name: bundle.title,
-        displayPrice: bundle.displayPrice,
-        minPrice: bundle.minPrice,
-        qty: 1,
-        composition: compositionSnapshot?.map(it => ({ name: it.name, qty: it.qty })) || []
-      });
-      persistAndRender();
-    }
+// 初始化商品
+function renderProducts() {
+  const productDiv = document.getElementById("product-list");
+  products.forEach(p => {
+    const div = document.createElement("div");
+    div.className = "item";
+    div.innerHTML = `
+      <h4>${p.name}</h4>
+      <p>$${p.price}</p>
+      <button onclick="addToCart('${p.id}','single',${p.price},'${p.name}')">加入購物車</button>
+    `;
+    productDiv.appendChild(div);
+  });
 
-    // ====== 渲染：單品表 ======
-    function renderSingles() {
-      const list = document.getElementById('singlesList');
-      list.innerHTML = '';
-      menuData.singles.forEach(s => {
-        const row = document.createElement('div');
-        row.className = 'py-2 flex items-center justify-between';
-        row.innerHTML = `
-          <div>
-            <div class="font-medium">${s.name}</div>
-            <div class="text-xs text-slate-500">單價 $${s.unitPrice.toLocaleString('zh-TW')}</div>
-          </div>
-          <button class="add-single bg-slate-800 text-white text-sm rounded px-3 py-1 hover:bg-slate-700" data-id="${s.id}">＋加入</button>
-        `;
-        list.appendChild(row);
-      });
-      list.addEventListener('click', (e)=>{
-        const t = e.target;
-        if (!t.classList.contains('add-single')) return;
-        const id = t.getAttribute('data-id');
-        const s = menuData.singles.find(x=>x.id===id);
-        if (!s) return;
-        const found = cart.find(x=>x.type==='single' && x.itemId===id);
-        if (found) found.qty += 1; else cart.push({ type:'single', itemId:id, name:s.name, unitPrice:s.unitPrice, qty:1 });
-        persistAndRender();
-      });
-    }
+  const bundleDiv = document.getElementById("bundle-list");
+  bundles.forEach(b => {
+    const div = document.createElement("div");
+    div.className = "item";
+    div.innerHTML = `
+      <h4>${b.name}</h4>
+      <p>優惠價 $${b.displayPrice}</p>
+      <button onclick="addToCart('${b.id}','bundle',${b.displayPrice},'${b.name}')">加入購物車</button>
+    `;
+    bundleDiv.appendChild(div);
+  });
+}
 
-    // ====== 渲染：組合優惠 ======
-    function renderCombos() {
-      const area = document.getElementById('combosList');
-      area.innerHTML = '';
-      menuData.combos.forEach(c => {
-        // 初始狀態
-        if (!state.combos[c.id]) {
-          state.combos[c.id] = { quantities: {}, variantIdx: 0 };
-        }
-        const st = state.combos[c.id];
-
-        const card = document.createElement('div');
-        card.className = 'border rounded-xl p-3 shadow-sm';
-        let bodyHTML = '';
-
-        if (c.rule.type === 'pickNFixed') {
-          bodyHTML += `<div class="text-sm text-slate-600 mb-2">${c.description||''}</div>`;
-          bodyHTML += `<div class="grid grid-cols-2 gap-2">`;
-          (c.choices||[]).forEach(ch => {
-            const q = st.quantities[ch.itemId] || 0;
-            bodyHTML += `
-              <div class="border rounded p-2 flex items-center justify-between">
-                <div class="text-sm">${ch.name}</div>
-                <div class="inline-flex items-center gap-1">
-                  <button class="c-dec w-6 h-6 rounded bg-slate-100 hover:bg-slate-200" data-cid="${c.id}" data-item="${ch.itemId}">−</button>
-                  <span class="min-w-[2ch] text-center">${q}</span>
-                  <button class="c-inc w-6 h-6 rounded bg-slate-100 hover:bg-slate-200" data-cid="${c.id}" data-item="${ch.itemId}">＋</button>
-                </div>
-              </div>`;
-          });
-          bodyHTML += `</div>`;
-          const total = Object.values(st.quantities).reduce((a,b)=>a+b,0);
-          const ok = total === c.rule.n;
-          bodyHTML += `<div class="mt-2 text-xs ${ok?'text-emerald-600':'text-red-600'}">已選 ${total} / 需選 ${c.rule.n}</div>`;
-          bodyHTML += `<button class="add-combo mt-3 w-full ${ok?'bg-slate-800 hover:bg-slate-700':'bg-slate-300 cursor-not-allowed'} text-white rounded py-2" data-cid="${c.id}" ${ok?'':'disabled'}>加入組合包（$${c.rule.fixedPrice.toLocaleString('zh-TW')}）</button>`;
-        }
-        else if (c.rule.type === 'exactMixFixed') {
-          bodyHTML += `<div class="text-sm text-slate-600 mb-2">${c.description||''}</div>`;
-          const mix = c.rule.exactMix || {};
-          bodyHTML += `<ul class="text-sm list-disc pl-6">
-            ${Object.entries(mix).map(([itemId, q])=>{
-              const nm = (c.choices||[]).find(x=>x.itemId===itemId)?.name || itemId;
-              return `<li>${nm} × ${q}</li>`;
-            }).join('')}
-          </ul>`;
-          bodyHTML += `<button class="add-exact mt-3 w-full bg-slate-800 hover:bg-slate-700 text-white rounded py-2" data-cid="${c.id}">加入組合包（$${c.rule.fixedPrice.toLocaleString('zh-TW')}）</button>`;
-        }
-        else if (c.rule.type === 'variantFixed') {
-          // 單選變體（例如：1罐 或 2袋）
-          bodyHTML += `<div class="text-sm text-slate-600 mb-2">${c.description||''}</div>`;
-          bodyHTML += `<div class="space-y-2">`;
-          (c.rule.variants||[]).forEach((v, idx)=>{
-            bodyHTML += `<label class="flex items-center gap-2 border rounded p-2">
-              <input type="radio" name="v-${c.id}" ${idx===st.variantIdx?'checked':''} data-cid="${c.id}" data-vidx="${idx}" class="v-choose">
-              <span>${v.label}</span>
-            </label>`;
-          });
-          bodyHTML += `</div>`;
-          bodyHTML += `<button class="add-variant mt-3 w-full bg-slate-800 hover:bg-slate-700 text-white rounded py-2" data-cid="${c.id}">加入組合包（$${c.rule.fixedPrice.toLocaleString('zh-TW')}）</button>`;
-        }
-
-        card.innerHTML = `
-          <div class="font-semibold">${c.title}</div>
-          ${bodyHTML}
-        `;
-        area.appendChild(card);
-      });
-
-      // 互動綁定
-      area.addEventListener('click', (e)=>{
-        const t = e.target;
-        if (t.classList.contains('c-dec') || t.classList.contains('c-inc')) {
-          const cid = t.getAttribute('data-cid');
-          const item = t.getAttribute('data-item');
-          const st = state.combos[cid];
-          st.quantities[item] = st.quantities[item] || 0;
-          if (t.classList.contains('c-dec')) st.quantities[item] = Math.max(0, st.quantities[item]-1);
-          else st.quantities[item] += 1;
-          renderCombos();
-        }
-        if (t.classList.contains('add-combo')) {
-          const cid = t.getAttribute('data-cid');
-          const c = menuData.combos.find(x=>x.id===cid);
-          const stc = state.combos[cid];
-          const total = Object.values(stc.quantities).reduce((a,b)=>a+b,0);
-          if (total !== c.rule.n) return;
-          const selections = Object.entries(stc.quantities).filter(([,q])=>q>0).map(([itemId, qty])=>{
-            const nm = (c.choices||[]).find(x=>x.itemId===itemId)?.name || itemId;
-            return { itemId, name: nm, qty };
-          });
-          addComboToCart(c, selections);
-          // 清空選擇
-          state.combos[cid].quantities = {};
-          renderCombos();
-        }
-        if (t.classList.contains('add-exact')) {
-          const cid = t.getAttribute('data-cid');
-          const c = menuData.combos.find(x=>x.id===cid);
-          const mix = c.rule.exactMix || {};
-          const selections = Object.entries(mix).map(([itemId, qty])=>{
-            const nm = (c.choices||[]).find(x=>x.itemId===itemId)?.name || itemId;
-            return { itemId, name: nm, qty };
-          });
-          addComboToCart(c, selections);
-        }
-      });
-      area.addEventListener('change', (e)=>{
-        const t = e.target;
-        if (t.classList.contains('v-choose')) {
-          const cid = t.getAttribute('data-cid');
-          const vidx = +t.getAttribute('data-vidx');
-          state.combos[cid].variantIdx = vidx;
-        }
-      });
-      area.addEventListener('click', (e)=>{
-        const t = e.target;
-        if (t.classList.contains('add-variant')) {
-          const cid = t.getAttribute('data-cid');
-          const c = menuData.combos.find(x=>x.id===cid);
-          const idx = state.combos[cid].variantIdx || 0;
-          const variant = (c.rule.variants||[])[idx];
-          const selections = (variant?.selections||[]).map(s=>({ ...s }));
-          addComboToCart(c, selections);
-        }
-      });
-    }
-
-    function addComboToCart(combo, selections) {
-      // 檢查是否與既有相同（同 comboId 且相同 selections 組合）則合併
-      const keyOf = (sel) => JSON.stringify(sel.sort((a,b)=>a.itemId.localeCompare(b.itemId)));
-      const key = keyOf(selections);
-      const found = cart.find(x=>x.type==='combo' && x.comboId===combo.id && keyOf(x.selections)===key);
-      if (found) found.qty += 1; else cart.push({
-        type: 'combo', comboId: combo.id, name: combo.title,
-        rule: combo.rule, selections: selections.map(s=>({ ...s })), qty: 1
-      });
-      persistAndRender();
-    }
-
-    // ====== 購物車渲染與邏輯 ======
-    function renderCart() {
-      const box = document.getElementById('cartItems');
-      const mbox = document.getElementById('mCartItems');
-      const tpl = (mobile=false) => {
-        return cart.map((it, idx)=>{
-          if (it.type==='single') {
-            return `
-              <div class="border rounded-lg p-2">
-                <div class="flex justify-between items-center">
-                  <div class="text-sm">${it.name}</div>
-                  <div class="text-sm">$${(it.unitPrice).toLocaleString('zh-TW')}</div>
-                </div>
-                <div class="mt-1 flex items-center justify-between text-sm">
-                  <div class="inline-flex items-center gap-1">
-                    <button class="cart-dec px-2 py-1 bg-slate-100 rounded" data-idx="${idx}">−</button>
-                    <span>${it.qty}</span>
-                    <button class="cart-inc px-2 py-1 bg-slate-100 rounded" data-idx="${idx}">＋</button>
-                  </div>
-                  <button class="cart-del text-slate-500" data-idx="${idx}">刪除</button>
-                </div>
-              </div>`;
-          } else if (it.type==='bundle') {
-            const diff = Math.max(it.minPrice - it.displayPrice, 0) * it.qty;
-            return `
-              <div class="border rounded-lg p-2">
-                <div class="flex justify-between items-center">
-                  <div class="text-sm font-medium">${it.name}</div>
-                  <div class="text-sm">$${(Math.max(it.displayPrice, it.minPrice)).toLocaleString('zh-TW')} /組</div>
-                </div>
-                <div class="mt-1 text-xs text-slate-500">門檻補差（顯示）：$${(Math.max(it.minPrice - it.displayPrice, 0)).toLocaleString('zh-TW')} /組</div>
-                ${it.composition?.length?`<details class="mt-1">
-                  <summary class="text-xs text-slate-600 cursor-pointer">查看明細</summary>
-                  <ul class="text-xs list-disc pl-5 mt-1">${it.composition.map(c=>`<li>${c.name} × ${c.qty}</li>`).join('')}</ul>
-                </details>`:''}
-                <div class="mt-1 flex items-center justify-between text-sm">
-                  <div class="inline-flex items-center gap-1">
-                    <button class="cart-dec px-2 py-1 bg-slate-100 rounded" data-idx="${idx}">−</button>
-                    <span>${it.qty}</span>
-                    <button class="cart-inc px-2 py-1 bg-slate-100 rounded" data-idx="${idx}">＋</button>
-                  </div>
-                  <button class="cart-del text-slate-500" data-idx="${idx}">刪除</button>
-                </div>
-              </div>`;
-          } else if (it.type==='combo') {
-            const invalid = !comboValid(it);
-            return `
-              <div class="border rounded-lg p-2 ${invalid?'border-red-400':''}">
-                <div class="flex justify-between items-center">
-                  <div class="text-sm font-medium">${it.name}${invalid?'<span class="ml-2 text-red-600 text-xs">（未選滿/規則不符）</span>':''}</div>
-                  <div class="text-sm">$${(getComboFixedPrice(it.rule)).toLocaleString('zh-TW')} /包</div>
-                </div>
-                <details class="mt-1">
-                  <summary class="text-xs text-slate-600 cursor-pointer">子品項</summary>
-                  <div class="mt-1 space-y-1">
-                    ${it.selections.map((s,sidx)=>`
-                      <div class="flex items-center justify-between text-sm">
-                        <div>${s.name}</div>
-                        <div class="inline-flex items-center gap-1">
-                          <button class="sel-dec px-2 py-1 bg-slate-100 rounded" data-idx="${idx}" data-sidx="${sidx}">−</button>
-                          <span>${s.qty}</span>
-                          <button class="sel-inc px-2 py-1 bg-slate-100 rounded" data-idx="${idx}" data-sidx="${sidx}">＋</button>
-                        </div>
-                      </div>
-                    `).join('')}
-                  </div>
-                </details>
-                <div class="mt-1 flex items-center justify-between text-sm">
-                  <div class="inline-flex items-center gap-1">
-                    <button class="cart-dec px-2 py-1 bg-slate-100 rounded" data-idx="${idx}">−</button>
-                    <span>${it.qty}</span>
-                    <button class="cart-inc px-2 py-1 bg-slate-100 rounded" data-idx="${idx}">＋</button>
-                  </div>
-                  <button class="cart-del text-slate-500" data-idx="${idx}">刪除</button>
-                </div>
-              </div>`;
-          }
-          return '';
-        }).join('');
-      };
-      box.innerHTML = tpl(false);
-      mbox.innerHTML = tpl(true);
-
-      const totals = calcTotals();
-      document.getElementById('subtotalText').textContent = fmt(totals.subtotal);
-      document.getElementById('discountText').textContent = fmt(totals.discountShown);
-      document.getElementById('shippingText').textContent = fmt(totals.shipping);
-      document.getElementById('grandText').textContent = fmt(totals.total);
-
-      document.getElementById('mSubtotal').textContent = fmt(totals.subtotal);
-      document.getElementById('mDiscount').textContent = fmt(totals.discountShown);
-      document.getElementById('mShipping').textContent = fmt(totals.shipping);
-      document.getElementById('mGrand').textContent = fmt(totals.total);
-      document.getElementById('mobileCartCount').textContent = cart.reduce((a,b)=>a+(b.qty||0),0);
-
-      // 綁定（數量 + / -、刪除、子品項調整）
-      [box, mbox].forEach(container=>{
-        container.addEventListener('click', (e)=>{
-          const t = e.target;
-          if (t.classList.contains('cart-dec') || t.classList.contains('cart-inc')) {
-            const idx = +t.getAttribute('data-idx');
-            if (t.classList.contains('cart-dec')) cart[idx].qty = Math.max(0, (cart[idx].qty||0) - 1);
-            else cart[idx].qty = (cart[idx].qty||0) + 1;
-            if (cart[idx].qty===0) cart.splice(idx,1);
-            persistAndRender();
-          }
-          if (t.classList.contains('cart-del')) {
-            const idx = +t.getAttribute('data-idx');
-            cart.splice(idx,1); persistAndRender();
-          }
-          if (t.classList.contains('sel-dec') || t.classList.contains('sel-inc')) {
-            const idx = +t.getAttribute('data-idx');
-            const sidx = +t.getAttribute('data-sidx');
-            const s = cart[idx].selections[sidx];
-            if (t.classList.contains('sel-dec')) s.qty = Math.max(0, s.qty-1); else s.qty += 1;
-            persistAndRender();
-          }
-        });
-      });
-    }
-
-    function getComboFixedPrice(rule){
-      if (rule.type==='pickNFixed') return rule.fixedPrice;
-      if (rule.type==='exactMixFixed') return rule.fixedPrice;
-      if (rule.type==='variantFixed') return rule.fixedPrice;
-      return 0;
-    }
-
-    function comboValid(item){
-      const r = item.rule;
-      if (r.type==='pickNFixed') {
-        const total = item.selections.reduce((a,b)=>a+b.qty,0);
-        return total===r.n;
-      }
-      if (r.type==='exactMixFixed') {
-        const mix = r.exactMix || {}; // {itemId: qty}
-        const map = {}; item.selections.forEach(s=>map[s.itemId]=(map[s.itemId]||0)+s.qty);
-        const keys = new Set([...Object.keys(mix), ...Object.keys(map)]);
-        for (const k of keys){ if ((mix[k]||0)!==(map[k]||0)) return false; }
-        return true;
-      }
-      if (r.type==='variantFixed') {
-        // variant 在加入當下就固定 selections，所以無需再驗證
-        return true;
-      }
-      return false;
-    }
-
-    function calcTotals(){
-      let singlesSubtotal = 0, bundlesApplied = 0, combosApplied = 0, discountShown = 0;
-      for (const it of cart){
-        if (it.type==='single') singlesSubtotal += it.unitPrice * it.qty;
-        else if (it.type==='bundle') {
-          const unitPay = Math.max(it.displayPrice, it.minPrice);
-          bundlesApplied += unitPay * it.qty;
-          discountShown += Math.max(it.minPrice - it.displayPrice, 0) * it.qty; // 顯示用
-        }
-        else if (it.type==='combo') {
-          combosApplied += getComboFixedPrice(it.rule) * it.qty;
-        }
-      }
-      const subtotal = singlesSubtotal + bundlesApplied + combosApplied;
-      const shipping = 0;
-      const total = subtotal + shipping;
-      return { singlesSubtotal, bundlesApplied, combosApplied, discountShown, shipping, subtotal, total };
-    }
-
-    function persistAndRender(){
-      localStorage.setItem('orderCartV1', JSON.stringify({ cart }));
-      renderCart();
-    }
-
-    // ====== 表單 / 送單 ======
-    function collectBuyer(isMobile=false){
-      const payCash = (isMobile?$('#mPayCash'):$('#payCash')).checked;
-      const payBank = (isMobile?$('#mPayBank'):$('#payBank')).checked;
-      const payTax = (isMobile?$('#mPayTax'):$('#payTax')).checked;
-      const taxId = (isMobile?$('#mTaxId'):$('#taxIdInput')).value.trim();
-      const payCarrier = (isMobile?$('#mPayCarrier'):$('#payCarrier')).checked;
-      const carrier = (isMobile?$('#mCarrier'):$('#carrierInput')).value.trim();
-      const delRadio = (isMobile?$$('input[name="mDelivery"]'):$$('input[name="delivery"]').filter(r=>r.checked));
-      const method = (isMobile?$$('input[name="mDelivery"]'):$$('input[name="delivery"]').filter(r=>r.checked))[0]?.value || '';
-      const address = (isMobile?$('#mAddress'):$('#addressInput')).value.trim();
-      return {
-        payment: { cash: payCash||undefined, bankTransfer: payBank||undefined, taxId: payTax?taxId:undefined, carrier: payCarrier?carrier:undefined },
-        delivery: { method: method||undefined, address: method==='ship'?address:undefined },
-        note: (isMobile?$('#mNote'):$('#noteInput')).value.trim(),
-      };
-    }
-
-    function validateBeforeSubmit(buyer){
-      const errs = [];
-      if (cart.length===0) errs.push('購物車為空');
-      // 付款至少一項
-      if (!buyer.payment.cash && !buyer.payment.bankTransfer && !buyer.payment.taxId && !buyer.payment.carrier) {
-        errs.push('請選擇至少一種付款方式');
-      }
-      if (buyer.payment.taxId!==undefined && buyer.payment.taxId==='') errs.push('統編已勾選但未填寫');
-      if (buyer.payment.carrier!==undefined && buyer.payment.carrier==='') errs.push('載具已勾選但未填寫');
-      // 交付
-      if (!buyer.delivery.method) errs.push('請選擇交付方式');
-      if (buyer.delivery.method==='ship' && !buyer.delivery.address) errs.push('郵寄請填地址');
-      // combo 規則
-      for (const it of cart){ if (it.type==='combo' && !comboValid(it)) { errs.push(`組合「${it.name}」未滿足規則`); break; } }
-      return errs;
-    }
-
-    function submitOrder(isMobile=false){
-      const buyerRaw = collectBuyer(isMobile);
-      const errs = validateBeforeSubmit({ payment: buyerRaw.payment, delivery: buyerRaw.delivery });
-      const errBox = isMobile?$('#mError'):$('#errorBox');
-      if (errs.length){
-        errBox.classList.remove('hidden');
-        errBox.innerHTML = errs.map(s=>`• ${s}`).join('<br>');
-        alert('送出失敗\n' + errs.join('\n'));
-        return;
-      } else { errBox.classList.add('hidden'); errBox.textContent = ''; }
-
-      const totals = calcTotals();
-      const payload = {
-        meta: {
-          dateISO: ($('#dateInput').value || new Date().toISOString().slice(0,10)),
-          orderNo: ($('#orderNoInput').value || undefined),
-          note: buyerRaw.note || undefined,
-        },
-        buyer: { payment: buyerRaw.payment, delivery: buyerRaw.delivery },
-        items: cart,
-        amounts: { subtotal: totals.subtotal, discountShown: totals.discountShown, shipping: totals.shipping, total: totals.total },
-      };
-
-      console.log('[ORDER PAYLOAD]', payload);
-      alert('已建立訂單（示範）\n請在主控台查看送出內容。');
-      // 實際串接：
-      // fetch('/api/orders', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) })
-      //   .then(r=>r.json()).then(data=>{ /* 成功處理 */ })
-      //   .catch(err=>{ alert('送出失敗'); console.error(err); });
-    }
-
-    // ====== 初始化 ======
-    renderBundles();
-    renderSingles();
-    renderCombos();
-    renderCart();
-
-    // 列印
-    document.getElementById('printBtn').addEventListener('click', ()=>window.print());
-
-    // 清空購物車
-    document.getElementById('clearCartBtn').addEventListener('click', ()=>{ if(confirm('清空購物車？')){ cart=[]; persistAndRender(); } });
-
-    // 付款/交付顯示補充欄位（桌面）
-    $('#payTax').addEventListener('change', e=>{ $('#taxIdInput').classList.toggle('hidden', !e.target.checked); });
-    $('#payCarrier').addEventListener('change', e=>{ $('#carrierInput').classList.toggle('hidden', !e.target.checked); });
-    $$('input[name="delivery"]').forEach(r=>r.addEventListener('change', e=>{ $('#addressInput').classList.toggle('hidden', e.target.value!=='ship'); }));
-
-    // 送出
-    $('#submitBtn').addEventListener('click', ()=>submitOrder(false));
-
-    // 手機抽屜
-    const openDrawer = ()=>{ $('#mobileDrawer').classList.remove('hidden'); };
-    const closeDrawer = ()=>{ $('#mobileDrawer').classList.add('hidden'); };
-    $('#mobileCartBtn').addEventListener('click', openDrawer);
-    $('#mobileClose').addEventListener('click', closeDrawer);
-
-    // 手機付款/交付欄位切換
-    $('#mPayTax').addEventListener('change', e=>{ $('#mTaxId').classList.toggle('hidden',!e.target.checked); });
-    $('#mPayCarrier').addEventListener('change', e=>{ $('#mCarrier').classList.toggle('hidden',!e.target.checked); });
-    $$('input[name="mDelivery"]').forEach(r=>r.addEventListener('change', e=>{ $('#mAddress').classList.toggle('hidden', e.target.value!=='ship'); }));
-    $('#mSubmit').addEventListener('click', ()=>submitOrder(true));
-  </script>
+// 啟動
+renderProducts();
+renderCart();
+</script>
 </body>
 </html>
-
