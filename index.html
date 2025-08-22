@@ -13,7 +13,10 @@
     --head:#2c3446; --head-text:#e5e7ee; --tab:#eef2f7; --price:#0f172a;
     --pill-bg:#e8eefc; --pill-text:#3556c6; --warn:#b45309;
     --tab-active:#4b5569; --tab-active-text:#fff;
+
+    --page-max: 1600px;   /* 主容器最大寬度 */
   }
+
   *{box-sizing:border-box}
   html,body{height:100%}
   body{
@@ -21,6 +24,7 @@
     font-family:"Noto Sans TC", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
     letter-spacing:.2px;
   }
+
   /* ===== 頂部深色標題條 ===== */
   .topbar{
     background:var(--head); color:var(--head-text);
@@ -38,13 +42,33 @@
   }
   .tabbtn.active{ background:var(--tab-active); color:var(--tab-active-text); border-color:var(--tab-active) }
 
-  /* ===== 版面：等同圖片的五欄（主頁） ===== */
-  .wrap{ max-width:1180px; margin:14px auto 24px; padding:0 12px }
+  /* ===== 版面：上方 6 卡片 + 下方整排購物車 ===== */
+  .wrap{ max-width: var(--page-max); margin:14px auto 24px; padding:0 12px }
+
   .grid{
-    display:grid; grid-template-columns: repeat(3, 1fr) 260px 260px; gap:12px;
+    display:grid;
+    grid-template-columns: repeat(6, 1fr); /* 上排 6 張卡剛好一列 */
+    gap:16px;
+    align-items:start;
   }
-  @media (max-width:1220px){ .grid{ grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width:780px){ .grid{ grid-template-columns: 1fr; } }
+  /* 響應式：中螢幕 3 欄，小螢幕 2 / 1 欄 */
+  @media (max-width:1280px){ .grid{ grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width:860px){ .grid{ grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width:600px){ .grid{ grid-template-columns: 1fr; } }
+
+  /* ===== 主頁購物車（置底整排） ===== */
+    .cart-full{
+      grid-column: 1 / -1;
+      position: relative;  /* 不要固定 */
+    }
+
+    /* ===== 第二頁購物車（右上角固定） ===== */
+    .cart-care{
+      position: sticky;
+      top: 78px;
+      align-self: start;
+    }
+
 
   /* ===== 第二頁（保養／茶飲）版面：內容 + 購物車 ===== */
   .grid-care{
@@ -100,22 +124,23 @@
   .list .meta{ display:flex; align-items:center; gap:6px }
 
   /* ===== 購物車 ===== */
-  .cart{ position:sticky; top:78px; align-self:start }
   .cart .row{ font-size:14px }
   .cart .subtotal{ font-weight:800; padding-top:8px; border-top:1px dashed var(--border) }
   .cart-item{ display:grid; grid-template-columns:1fr auto; gap:4px; padding:8px 0; border-bottom:1px dashed var(--border) }
   .qtyctl{ display:flex; align-items:center; gap:6px }
   .qtyctl button{ width:28px; height:28px; border-radius:6px }
 
-  /* 列印 */
+  /* ===== 列印 ===== */
   @media print{
     body{ background:#fff }
     .topbar{ -webkit-print-color-adjust:exact; print-color-adjust:exact }
-    .grid{ grid-template-columns: repeat(3, 1fr) 260px 260px; gap:10px }
-    .btn, .card.hang:before, .tabs{ display:none!important }
-    .cart{ position:static; top:auto }
+    .tabs{ display:none!important }
+    .card.hang:before{ display:none!important }
+    .grid{ grid-template-columns: repeat(3, 1fr); gap:10px }
+    .cart-full{ grid-column: 1 / -1; }
     .content{ padding:8px 10px }
     th,td{ padding:5px 5px; font-size:12px }
+    .btn{ display:none!important }
   }
 </style>
 </head>
@@ -140,7 +165,7 @@
   <!-- Page A：主頁 -->
   <section class="wrap" id="page-main" aria-hidden="false">
     <div class="grid">
-      <!-- 三個套組欄（掛孔） -->
+      <!-- 三個套組 -->
       <section class="card hang" id="classicCard">
         <h3>經典套組</h3>
         <div class="content">
@@ -192,7 +217,7 @@
         </div>
       </section>
 
-      <!-- 右上：單品 -->
+      <!-- 單品 -->
       <section class="card">
         <h3>單品</h3>
         <div class="content">
@@ -200,14 +225,20 @@
         </div>
       </section>
 
-      <!-- 右上：組合優惠 -->
+      <!-- 組合優惠（左） -->
       <section class="card">
         <h3>組合優惠價</h3>
         <div class="content stack" id="combos"></div>
       </section>
 
-      <!-- 右欄：購物車（主頁共用） -->
-      <aside class="card cart" style="grid-column: 4 / span 2">
+      <!-- 組合優惠（右） -->
+      <section class="card">
+        <h3>組合優惠價</h3>
+        <div class="content stack" id="combos-right"></div>
+      </section>
+
+      <!-- ↓↓↓ 這一塊改成置底整排購物車 ↓↓↓ -->
+      <aside class="card cart cart-full">
         <h3>購物車</h3>
         <div class="content">
           <div id="cartItems"></div>
@@ -222,56 +253,40 @@
           </div>
         </div>
       </aside>
+      <!-- ↑↑↑ 置底整排購物車 ↑↑↑ -->
     </div>
   </section>
 
-  <!-- Page B：無齡醫師保養品 & 茶飲 -->
+  <!-- Page B：無齡醫師保養品 & 茶飲（維持原本） -->
   <section class="wrap" id="page-care" aria-hidden="true" style="display:none">
     <div class="grid-care">
-      <!-- 左：分類清單 + 固定配方組合 -->
       <div class="stack">
         <section class="card">
           <h3>💧 保養品</h3>
-          <div class="content">
-            <ul class="list" id="care-skin"></ul>
-          </div>
+          <div class="content"><ul class="list" id="care-skin"></ul></div>
         </section>
-
         <section class="card">
           <h3>🍵 食品 / 飲品</h3>
-          <div class="content">
-            <ul class="list" id="care-drink"></ul>
-          </div>
+          <div class="content"><ul class="list" id="care-drink"></ul></div>
         </section>
-
         <section class="card">
           <h3>🛠️ 其他用品</h3>
-          <div class="content">
-            <ul class="list" id="care-others"></ul>
-          </div>
+          <div class="content"><ul class="list" id="care-others"></ul></div>
         </section>
-
         <section class="card">
           <h3>🌸 私密保養</h3>
-          <div class="content">
-            <ul class="list" id="care-intimate"></ul>
-          </div>
+          <div class="content"><ul class="list" id="care-intimate"></ul></div>
         </section>
-
         <section class="card">
           <h3>💪 健康補給</h3>
-          <div class="content">
-            <ul class="list" id="care-health"></ul>
-          </div>
+          <div class="content"><ul class="list" id="care-health"></ul></div>
         </section>
 
-        <!-- 固定配方組合：保養三件組（洗顏＋外泌體精華＋乳霜） -->
+        <!-- 固定配方組合 -->
         <section class="card">
           <h3>保養三件組（固定配方）</h3>
           <div class="content stack">
-            <div class="row">
-              <span class="tag">固定價 $4,980（原價 $5,230）</span>
-            </div>
+            <div class="row"><span class="tag">固定價 $4,980（原價 $5,230）</span></div>
             <ul class="list">
               <li><div class="meta"><span>胺基酸洗顏慕絲 × 1</span><span class="muted">$680</span></div></li>
               <li><div class="meta"><span>外泌體修護精華液 × 1</span><span class="muted">$2,500</span></div></li>
@@ -288,12 +303,12 @@
         </section>
       </div>
 
-      <!-- 右：購物車（與主頁共用同一個容器與渲染） -->
-      <aside class="card cart">
+      <!-- 右：購物車（同步） -->
+      <!-- 右：購物車（同步） -->
+      <aside class="card cart cart-care">
         <h3>購物車</h3>
         <div class="content">
           <div id="cartItems-care"></div>
-          <!-- 同步顯示主車資訊 -->
           <div class="muted" id="bundleNotes-care" style="margin-top:6px"></div>
           <hr style="border:none;border-top:1px solid var(--border);margin:8px 0" />
           <div class="row"><span>小計</span><span class="price" id="subtotal-care">$0</span></div>
@@ -306,6 +321,7 @@
           <div class="muted">（此處顯示與主頁購物車同步）</div>
         </div>
       </aside>
+
     </div>
   </section>
 
@@ -342,7 +358,7 @@ const careCatalog = {
     { id:"exo_mask_box", name:"外泌體修護面膜（一盒5片）", unitPrice:850 },
   ],
   drink: [
-    { id:"yogurt", name:"允優格（限自取）", unitPrice:680 },
+    { id:"yogurt", name:"允優格（限台北無齡自取）", unitPrice:680 },
     { id:"tea_calm", name:"好好安心茶", unitPrice:600 },
     { id:"tea_beauty", name:"美美漂漂茶", unitPrice:600 },
     { id:"tea_energy", name:"滿滿活力茶", unitPrice:600 },
@@ -361,7 +377,6 @@ const careCatalog = {
   ]
 };
 
-// 讓第二頁商品也能參與價格對照（例如未來若做組合）
 const singlesByName = Object.fromEntries(
   [...singles, ...Object.values(careCatalog).flat()].map(s=>[s.name, s.unitPrice])
 );
@@ -377,7 +392,7 @@ const bundleDefs = {
   super: {
     title:"超值升級套組", displayPrice:30000, minPrice:33340,
     items:[
-      ["MNT 蛋白粉",8], ["暢便輕",4], ["衛適佳",2], ["嬌圓C",3], ["早安膠囊",2], ["晚安咀嚼錠",2], ["油澱雙切",1], ["優先盈",1], ["清口樂",1], ["雙L益菌糖",1], ["4+2R 追蹤",1]
+      ["MNT 蛋白粉",8], ["暢便輕",4], ["衛適佳",2], ["嬌圓C",3], ["早安膠囊",2], ["晚安咀嚼錠",2], ["油澱雙切",1], ["優先盈",1], ["清口樂",1], ["雙L益菌糖",1], ["4+2R 追蹤",2]
     ]
   },
   light: {
@@ -397,29 +412,15 @@ const mntPreset = {
 
 // 組合（主頁）
 const combos = [
-  // MNT 三入任選
-  {
-    id:"mnt3pack",
-    title:"MNT 蛋白粉 3 入任選（罐／袋）",
-    rule:{ type:"mntCanBagTotalFixed", n:3, fixedPrice:5000, init:{can:1, bag:2} },
-    product:"MNT 蛋白粉"
-  },
-  // 8/3 檔位
-  {
-    id:"mix8",
-    title:"暢/衛/C/L/魚/夜/敏/莓 組合",
+  { id:"mnt3pack", title:"MNT 蛋白粉 3 入任選（罐／袋）",
+    rule:{ type:"mntCanBagTotalFixed", n:3, fixedPrice:5000, init:{can:1, bag:2} }, product:"MNT 蛋白粉" },
+  { id:"mix8", title:"暢/衛/C/L/魚/夜/敏/莓 組合",
     rule:{ type:"pickTierFixed", tiers:[ {n:6, price:6300}, {n:3, price:3300} ] },
-    choices:["暢便輕","衛適佳","嬌圓C","雙L益菌糖","黃晶魚油","夜允眠","允敏通","允媄莓"]
-  },
+    choices:["暢便輕","衛適佳","嬌圓C","雙L益菌糖","黃晶魚油","夜允眠","允敏通","允媄莓"] },
   { id:"earlyLate", title:"早晚安組合", rule:{type:"pickNFixed", n:4, fixedPrice:3200}, choices:["早安膠囊","晚安咀嚼錠"] },
-  {
-    id:"goldOil", title:"金銀包組合",
-    rule:{ type:"exactBundleFixed", fixedPrice:5000, items:[ {name:"優先盈", qty:3}, {name:"油澱雙切", qty:2} ] }
-  },
-  {
-    id:"gradFav", title:"畢業生最愛組合",
-    rule:{ type:"exactBundleFixed", fixedPrice:6200, items:[ {name:"優先盈", qty:3}, {name:"雙L益菌糖", qty:2} ] }
-  },
+  { id:"goldOil", title:"金銀包組合", rule:{ type:"exactBundleFixed", fixedPrice:5000, items:[ {name:"優先盈", qty:3}, {name:"油澱雙切", qty:2} ] } },
+  { id:"gradFav", title:"畢業生最愛組合", rule:{ type:"exactBundleFixed", fixedPrice:6200, items:[ {name:"優先盈", qty:3}, {name:"雙L益菌糖", qty:2} ] } },
+  { id:"tea3", title:"茶包三入任選", rule:{ type:"pickNFixed", n: 3, fixedPrice: 1500 }, choices: ["好好安心茶","美美漂漂茶","滿滿活力茶"] }
 ];
 
 /****************** 狀態 ******************/
@@ -540,12 +541,21 @@ function renderSingles(){
   }));
 }
 
-/****************** Render：組合（主頁） ******************/
+/****************** Render：組合（主頁，分流到主容器 & 右欄） ******************/
 function renderCombos(){
-  const wrap = document.getElementById("combos");
-  wrap.innerHTML = "";
+  const mainWrap  = document.getElementById("combos");
+  const rightWrap = document.getElementById("combos-right");
+  mainWrap.innerHTML = "";
+  if (rightWrap) rightWrap.innerHTML = "";
+
+  // 仍保留右側精選四組（照舊）
+  const RIGHT_COMBO_IDS = new Set(["earlyLate", "goldOil", "gradFav", "tea3"]);
+
+  const appendBlock = (el) => (container) => container && container.appendChild(el);
+
   combos.forEach(c=>{
-    // MNT 3入（罐/袋）
+    const target = RIGHT_COMBO_IDS.has(c.id) ? rightWrap : mainWrap;
+
     if(c.rule.type === "mntCanBagTotalFixed"){
       const id = c.id, n=c.rule.n;
       const initCan = (c.rule.init && c.rule.init.can) || 0;
@@ -565,12 +575,12 @@ function renderCombos(){
           <button class="btn primary" data-add-mntpack="${id}" ${(initCan+initBag)===n? "":"disabled"}>加入組合包</button>
         </div>
       </div>`;
-      wrap.appendChild(block);
+      appendBlock(block)(target);
 
-      const canInput = $(`input[data-mntpack='${id}:can']`);
-      const bagInput = $(`input[data-mntpack='${id}:bag']`);
-      const btn = $(`[data-add-mntpack='${id}']`);
-      const cnt = $(`#cnt-${id}`);
+      const canInput = document.querySelector(`input[data-mntpack='${id}:can']`);
+      const bagInput = document.querySelector(`input[data-mntpack='${id}:bag']`);
+      const btn = document.querySelector(`[data-add-mntpack='${id}']`);
+      const cnt = document.getElementById(`cnt-${id}`);
       const update=()=>{
         const can=+canInput.value||0, bag=+bagInput.value||0, sum=can+bag;
         cnt.textContent=String(sum); btn.disabled = sum!==n;
@@ -587,55 +597,124 @@ function renderCombos(){
       update(); return;
     }
 
-    // 兩檔任選
     if (c.rule.type === "pickTierFixed") {
-      const id=c.id; const [tierA,tierB]=c.rule.tiers;
-      const block=document.createElement("div"); block.className="card";
-      block.innerHTML=`<div class="content">
-        <div class="row" style="margin-bottom:6px"><b>${c.title}</b><span class="tag" id="tag-${id}">${tierA.n} 入任選 / 固定價 ${currency(tierA.price)}</span></div>
-        <div class="row" style="gap:16px; margin:6px 0 10px">
-          <label style="display:inline-flex;align-items:center;gap:6px"><input type="radio" name="tier-${id}" value="0" checked><span>${tierA.n} 入 / ${currency(tierA.price)}</span></label>
-          <label style="display:inline-flex;align-items:center;gap:6px"><input type="radio" name="tier-${id}" value="1"><span>${tierB.n} 入 / ${currency(tierB.price)}</span></label>
-        </div>
-        <div id="checks-${id}" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px">
-          ${c.choices.map(name=>{
-            const unit = singlesByName[name]||0;
-            return `<label style="display:flex; align-items:center; gap:8px; border:1px solid var(--border); border-radius:8px; padding:6px 8px">
-              <input type="checkbox" data-check="${id}" value="${name}">
+  const id = c.id;
+  const [tierA, tierB] = c.rule.tiers; // 例如 {n:6, price:6300}、{n:3, price:3300}
+  const block = document.createElement("div");
+  block.className = "card";
+  block.innerHTML = `
+    <div class="content">
+      <div class="row" style="margin-bottom:6px">
+        <b>${c.title}</b>
+        <span class="tag" id="tag-${id}">${tierA.n} 入任選 / 固定價 ${currency(tierA.price)}</span>
+      </div>
+
+      <!-- 6入 / 3入 方案切換 -->
+      <div class="row" style="gap:16px; margin:6px 0 10px">
+        <label style="display:inline-flex;align-items:center;gap:6px">
+          <input type="radio" name="tier-${id}" value="0" checked>
+          <span>${tierA.n} 入 / ${currency(tierA.price)}</span>
+        </label>
+        <label style="display:inline-flex;align-items:center;gap:6px">
+          <input type="radio" name="tier-${id}" value="1">
+          <span>${tierB.n} 入 / ${currency(tierB.price)}</span>
+        </label>
+      </div>
+
+      <!-- 可輸入「數量」的清單（兩欄） -->
+      <div id="qtywrap-${id}" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px">
+        ${c.choices.map(name=>{
+          const unit = singlesByName[name]||0;
+          const safeId = `${id}:${name}`;
+          return `
+            <label style="display:flex; align-items:center; gap:8px; border:1px solid var(--border); border-radius:8px; padding:6px 8px; justify-content:space-between">
               <span>${name} <span class="muted">${currency(unit)}</span></span>
-            </label>`;
-          }).join("")}
-        </div>
-        <div class="row" style="margin-top:6px">
-          <div class="muted">已選 <b id="cnt-${id}">0</b> / <span id="need-${id}">${tierA.n}</span></div>
-          <button class="btn primary" data-add-mix8="${id}" disabled>加入組合包</button>
-        </div>
-      </div>`;
-      wrap.appendChild(block);
+              <input type="number" min="0" value="0" data-qty="${safeId}" style="width:64px; text-align:center; height:28px">
+            </label>
+          `;
+        }).join("")}
+      </div>
 
-      const radios = $$(`input[name='tier-${id}']`);
-      const checks = $$(`input[data-check='${id}']`);
-      const tagEl  = $(`#tag-${id}`), cntEl=$(`#cnt-${id}`), needEl=$(`#need-${id}`), addBtn=$(`[data-add-mix8='${id}']`);
-      let currentTier=0;
-      const need = ()=> currentTier===0? tierA.n : tierB.n;
-      const price= ()=> currentTier===0? tierA.price : tierB.price;
-      const update=()=>{
-        const selected = checks.filter(ch=> ch.checked).length;
-        cntEl.textContent=String(selected); needEl.textContent=String(need()); addBtn.disabled = selected!==need();
-        tagEl.textContent = `${need()} 入任選 / 固定價 ${currency(price())}`;
-      };
-      radios.forEach(r=> r.addEventListener('change', ()=>{ currentTier=+r.value; checks.forEach(ch=> ch.checked=false); update(); }));
-      checks.forEach(ch=> ch.addEventListener('change', update));
-      addBtn.addEventListener('click', ()=>{
-        const picked = checks.filter(ch=> ch.checked).map(ch=> ch.value);
-        const selections = picked.map(name=> ({ name, qty: 1 }));
-        cart.push({ type:'combo', name:`${c.title}（${need()}入）`, rule:{ fixedPrice:price() }, selections, qty:1 });
-        checks.forEach(ch=> ch.checked=false); update(); renderCart();
-      });
-      update(); return;
-    }
+      <div class="row" style="margin-top:6px">
+        <div class="muted">已選 <b id="cnt-${id}">0</b> / <span id="need-${id}">${tierA.n}</span></div>
+        <button class="btn primary" data-add-mix8="${id}" disabled>加入組合包</button>
+      </div>
+    </div>
+  `;
+  appendBlock(block)(target);
 
-    // 任選 N 固定價
+  // 控制元件
+  const radios = [...document.querySelectorAll(`input[name='tier-${id}']`)];
+  const qtyInputs = [...document.querySelectorAll(`input[data-qty^='${id}:']`)];
+  const tagEl  = document.getElementById(`tag-${id}`);
+  const cntEl  = document.getElementById(`cnt-${id}`);
+  const needEl = document.getElementById(`need-${id}`);
+  const addBtn = document.querySelector(`[data-add-mix8='${id}']`);
+
+  let currentTier = 0; // 0 -> tierA(6入), 1 -> tierB(3入)
+
+  const need = () => currentTier === 0 ? tierA.n : tierB.n;
+  const price = () => currentTier === 0 ? tierA.price : tierB.price;
+
+  // 計算目前總數量
+  const sumQty = () => qtyInputs.reduce((s, i) => s + (+i.value || 0), 0);
+
+  // 更新畫面/按鈕狀態
+  const update = () => {
+    const selected = sumQty();
+    cntEl.textContent = String(selected);
+    needEl.textContent = String(need());
+    addBtn.disabled = selected !== need();
+    tagEl.textContent = `${need()} 入任選 / 固定價 ${currency(price())}`;
+  };
+
+  // 切換 6入/3入：清空數量，重算
+  radios.forEach(r => r.addEventListener('change', () => {
+    currentTier = +r.value;
+    qtyInputs.forEach(i => i.value = "0");
+    update();
+  }));
+
+  // 任一品項數量改變就重算
+  qtyInputs.forEach(i => i.addEventListener('input', () => {
+    // 避免負數或 NaN
+    const v = Math.max(0, parseInt(i.value || "0", 10) || 0);
+    i.value = String(v);
+    update();
+  }));
+
+  // 加入購物車
+  addBtn.addEventListener('click', () => {
+    // 收集有填數量的品項
+    const selections = qtyInputs
+      .map(i => {
+        const name = i.dataset.qty.split(':')[1];
+        const qty = +i.value || 0;
+        return { name, qty };
+      })
+      .filter(s => s.qty > 0);
+
+    // 寫入購物車，固定價以 tier 對應
+    cart.push({
+      type: 'combo',
+      name: `${c.title}（${need()}入）`,
+      rule: { fixedPrice: price() },
+      selections,
+      qty: 1
+    });
+
+    // 重置輸入框與狀態
+    qtyInputs.forEach(i => i.value = "0");
+    update();
+    renderCart();
+  });
+
+  // 一開始先算一次
+  update();
+  return;
+}
+
+
     if(c.rule.type === "pickNFixed"){
       const id = c.id;
       const block = document.createElement("div");
@@ -654,11 +733,11 @@ function renderCombos(){
           <button class="btn primary" data-add-combo="${id}" disabled>加入組合包</button>
         </div>
       </div>`;
-      wrap.appendChild(block);
+      appendBlock(block)(target);
 
-      const inputs = $$(`input[data-choice^='${id}:']`);
-      const btn = $(`[data-add-combo='${id}']`);
-      const cnt = $(`#cnt-${id}`);
+      const inputs = [...document.querySelectorAll(`input[data-choice^='${id}:']`)];
+      const btn = document.querySelector(`[data-add-combo='${id}']`);
+      const cnt = document.getElementById(`cnt-${id}`);
       const update=()=>{
         const sum = inputs.reduce((s,i)=> s + (+i.value||0), 0);
         cnt.textContent = String(sum); btn.disabled = sum !== c.rule.n;
@@ -672,7 +751,6 @@ function renderCombos(){
       update(); return;
     }
 
-    // 固定配方
     if (c.rule.type === "exactBundleFixed") {
       const id=c.id;
       const block=document.createElement("div"); block.className="card";
@@ -686,7 +764,7 @@ function renderCombos(){
           <button class="btn primary" data-add-exact="${id}">加入組合包</button>
         </div>
       </div>`;
-      wrap.appendChild(block);
+      appendBlock(block)(target);
 
       const addBtn = document.querySelector(`[data-add-exact='${id}']`);
       const setsInput = document.getElementById(`sets-${id}`);
@@ -701,7 +779,7 @@ function renderCombos(){
   });
 }
 
-/****************** Render：第二頁商品清單（可加入購物車） ******************/
+/****************** Render：第二頁商品清單 ******************/
 function renderCareLists(){
   const fill = (elId, items)=>{
     const ul = document.getElementById(elId); ul.innerHTML = "";
@@ -718,7 +796,6 @@ function renderCareLists(){
   fill("care-intimate", careCatalog.intimate);
   fill("care-health", careCatalog.health);
 
-  // 綁加入購物車
   $$("[data-care]").forEach(btn=> btn.addEventListener("click", ()=>{
     const s = Object.values(careCatalog).flat().find(x=> x.id===btn.dataset.care);
     const found = cart.find(c=> c.type==='single' && c.itemId===s.id);
@@ -726,7 +803,7 @@ function renderCareLists(){
     renderCart();
   }));
 
-  // 綁：保養三件組（固定配方 $4,980）
+  // 保養三件組（固定 $4,980）
   const addSkin3 = document.getElementById('add-skin3');
   const setsSkin3 = document.getElementById('sets-skin3');
   addSkin3.addEventListener('click', ()=>{
@@ -744,12 +821,8 @@ function renderCareLists(){
 
 /****************** Render：購物車（同步到兩頁的顯示區） ******************/
 function renderCart(){
-  // 主頁容器
-  const boxMain = document.getElementById('cartItems');
-  if(boxMain) boxMain.innerHTML = '';
-  // 第二頁容器
-  const boxCare = document.getElementById('cartItems-care');
-  if(boxCare) boxCare.innerHTML = '';
+  const boxMain = document.getElementById('cartItems'); if(boxMain) boxMain.innerHTML = '';
+  const boxCare = document.getElementById('cartItems-care'); if(boxCare) boxCare.innerHTML = '';
 
   let subtotal = 0; let bundleNote = '';
 
@@ -819,7 +892,6 @@ function renderCart(){
     if(boxCare) boxCare.appendChild(row);
   });
 
-  // 同步金額到兩頁
   const syncMoney = (suf)=>{
     const $sub = document.getElementById('subtotal'+suf);
     const $dis = document.getElementById('discount'+suf);
@@ -833,7 +905,6 @@ function renderCart(){
   syncMoney('');
   syncMoney('-care');
 
-  // 綁定控制鍵（兩頁共用）
   $$('[data-inc]').forEach(b=> b.addEventListener('click',()=>{ cart[+b.dataset.inc].qty++; renderCart(); }));
   $$('[data-dec]').forEach(b=> b.addEventListener('click',()=>{ const i=+b.dataset.dec; cart[i].qty=Math.max(1, cart[i].qty-1); renderCart(); }));
   $$('[data-del]').forEach(b=> b.addEventListener('click',()=>{ cart.splice(+b.dataset.del,1); renderCart(); }));
@@ -857,15 +928,12 @@ function addBundle(key){
 
 /****************** 分頁切換 & 送出/清空 ******************/
 function wireActions(){
-  // 主頁功能
   document.getElementById('clearCart').addEventListener('click', ()=>{ cart.length=0; renderCart(); });
   document.getElementById('submitOrder').addEventListener('click', submitOrder);
 
-  // 第二頁同功能（同步同一個 cart）
   document.getElementById('clearCart-care').addEventListener('click', ()=>{ cart.length=0; renderCart(); });
   document.getElementById('submitOrder-care').addEventListener('click', submitOrder);
 
-  // 分頁切換
   $$('[data-tab]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       $$('[data-tab]').forEach(b=> b.classList.remove('active'));
@@ -876,7 +944,6 @@ function wireActions(){
       document.getElementById('page-main').setAttribute('aria-hidden', String(!showMain));
       document.getElementById('page-care').style.display = showMain? 'none' : '';
       document.getElementById('page-care').setAttribute('aria-hidden', String(showMain));
-      // 切換後同步一次購物車顯示
       renderCart();
     });
   });
