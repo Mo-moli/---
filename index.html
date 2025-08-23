@@ -123,6 +123,73 @@
             border-bottom:1px solid var(--border) }
   .list .meta{ display:flex; align-items:center; gap:6px }
 
+/* ===== 單品（主頁）取消框格，保留分隔線 ===== */
+
+/* 容器維持直排、無間距，讓分隔線連續 */
+#singlesList{
+  display:flex;
+  flex-direction:column;
+  gap:0;
+  font-size:12.5px;    /* 統一字級，避免繼承異常 */
+  line-height:1.2;     /* 統一行高 */
+}
+
+/* 每列固定高度，由 li 控制；置中對齊，分隔線只畫底線 */
+#singlesList li{
+  list-style:none;
+  display:flex;
+  align-items:center;
+  height:48px;                 /* ⭐ 固定列高 */
+  padding:0 8px;               /* ⭐ padding 放在 li */
+  border-bottom:1px solid var(--border);
+}
+#singlesList li:last-child{ border-bottom:0; }
+
+/* label 不再決定高度，只做左右分佈 */
+#singlesList label{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  width:100%;
+  border:0 !important;
+  background:transparent !important;
+  padding:0;                   /* 高度與內距交給 li */
+  margin:0;
+}
+
+/* 左：名稱 + 價格（單行省略） */
+#singlesList .left{
+  flex:1;
+  min-width:0;
+  display:flex;
+  gap:6px;
+  align-items:center;
+  overflow:hidden;
+  white-space:nowrap;          /* ⭐ 整段不換行 */
+}
+#singlesList .left .name{
+  flex:1;
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+#singlesList .left .muted{
+  flex-shrink:0;
+  white-space:nowrap;          /* 價格不換行 */
+}
+
+/* 右：數量輸入框固定大小並貼齊右側 */
+#singlesList input[type="number"]{
+  width:64px;
+  height:32px;
+  text-align:center;
+  box-sizing:border-box;
+  margin-left:auto;            /* 右對齊 */
+}
+
+
+
+
   /* ===== 購物車 ===== */
   .cart .row{ font-size:14px }
   .cart .subtotal{ font-weight:800; padding-top:8px; border-top:1px dashed var(--border) }
@@ -340,7 +407,7 @@
           <div class="content"><ul class="list" id="care-skin"></ul></div>
         </section>
         <section class="card">
-          <h3>🍵 食品 / 飲品</h3>
+          <h3>🍵 食品 / 茶包</h3>
           <div class="content"><ul class="list" id="care-drink"></ul></div>
         </section>
         <section class="card">
@@ -358,9 +425,9 @@
 
         <!-- 固定配方組合 -->
         <section class="card">
-          <h3>保養三件組（固定配方）</h3>
+          <h3>保養三件組（固定組合）</h3>
           <div class="content stack">
-            <div class="row"><span class="tag">固定價 $4,980（原價 $5,230）</span></div>
+            <div class="row"><span class="tag">組合價 $4,980</span></div>
             <ul class="list">
               <li><div class="meta"><span>胺基酸洗顏慕絲 × 1</span><span class="muted">$680</span></div></li>
               <li><div class="meta"><span>外泌體修護精華液 × 1</span><span class="muted">$2,500</span></div></li>
@@ -615,24 +682,66 @@
       });
     }
     
-    /****************** Render：主頁單品 ******************/
-    function renderSingles(){
-      const ul = document.getElementById("singlesList");
-      ul.innerHTML = "";
-      singles.forEach(s=>{
-        const li = document.createElement("li");
-        li.innerHTML = `<div class="meta"><span>${s.name}</span><span class="muted">${currency(s.unitPrice)}</span></div>
-                        <button class="btn" data-single="${s.id}">＋</button>`;
-        ul.appendChild(li);
-      });
-      $$("[data-single]").forEach(btn=> btn.addEventListener("click",()=>{
-        const s = [...singles, ...Object.values(careCatalog).flat()].find(x=>x.id===btn.dataset.single);
-        const found = cart.find(c=> c.type==='single' && c.itemId===s.id);
-        if(found){ found.qty++; }else{ cart.push({type:'single', itemId:s.id, name:s.name, unitPrice:s.unitPrice, qty:1}); }
-        renderCart();
-      }));
+
+
+    /****************** Render：主頁單品（可調整數量 + 同步更新購物車） ******************/
+function renderSingles(){
+  const ul = document.getElementById("singlesList");
+  ul.innerHTML = "";
+
+  singles.forEach(s=>{
+    const li = document.createElement("li");
+    li.innerHTML = `
+      <label>
+        <span class="left">
+          <span class="name">${s.name}</span>
+          <span class="muted">${currency(s.unitPrice)}</span>
+        </span>
+        <input type="number" min="0" value="0" data-single="${s.id}">
+      </label>
+    `;
+    ul.appendChild(li);
+  });
+
+  // 底部：更新購物車（把畫面上的數量「同步覆寫」到購物車）
+  const addRow = document.createElement("div");
+  addRow.style = "margin-top:10px; text-align:right";
+  addRow.innerHTML = `<button class="btn primary" id="syncSingles">更新購物車（單品）</button>`;
+  ul.parentElement.appendChild(addRow);
+
+  // 綁定事件：同步主頁單品到購物車（不清空輸入框）
+  document.getElementById("syncSingles").addEventListener("click", ()=>{
+    const inputs = [...document.querySelectorAll("input[data-single]")];
+
+    // 先把「主頁單品」類別的舊項目從購物車移除，再依畫面數量重建（避免重複相加）
+    const mainSingleIds = new Set(singles.map(s=>s.id));
+    for(let i = cart.length - 1; i >= 0; i--){
+      const c = cart[i];
+      if(c.type === 'single' && mainSingleIds.has(c.itemId)){
+        cart.splice(i, 1);
+      }
     }
-    
+
+    // 依目前輸入框的數量新增到購物車（數量為 0 的就不新增）
+    inputs.forEach(inp=>{
+      const qty = Math.max(0, parseInt(inp.value || "0", 10) || 0);
+      if(qty > 0){
+        const s = singles.find(x => x.id === inp.dataset.single);
+        cart.push({
+          type:'single',
+          itemId:s.id,
+          name:s.name,
+          unitPrice:s.unitPrice,
+          qty
+        });
+      }
+    });
+
+    renderCart(); // 重新計算金額與項目
+  });
+}
+
+
     /****************** Render：組合（主頁，分流到主容器 & 右欄） ******************/
     function renderCombos(){
       const mainWrap  = document.getElementById("combos");
@@ -656,7 +765,7 @@
           block.innerHTML = `<div class="content">
             <div class="row" style="margin-bottom:6px">
               <b>${c.title}</b>
-              <span class="tag">${n} 入任選 / 固定價 ${currency(c.rule.fixedPrice)}</span>
+              <span class="tag">${n} 入任選 / 組合價 ${currency(c.rule.fixedPrice)}</span>
             </div>
             <div class="row mntpack-row" style="margin:6px 0"><span>${c.product}（罐）</span><input type="number" min="0" value="${initCan}" data-mntpack="${id}:can" style="width:58px;text-align:center;height:28px"></div>
             <div class="row mntpack-row" style="margin:6px 0"><span>${c.product}（袋）</span><input type="number" min="0" value="${initBag}" data-mntpack="${id}:bag" style="width:58px;text-align:center;height:28px"></div>
@@ -696,7 +805,7 @@
             <div class="content">
               <div class="row" style="margin-bottom:6px">
                 <b>${c.title}</b>
-                <span class="tag" id="tag-${id}">${tierA.n} 入任選 / 固定價 ${currency(tierA.price)}</span>
+                <span class="tag" id="tag-${id}">${tierA.n} 入任選 / 組合價 ${currency(tierA.price)}</span>
               </div>
               <div class="row" style="gap:16px; margin:6px 0 10px">
                 <label style="display:inline-flex;align-items:center;gap:6px">
@@ -745,7 +854,7 @@
             cntEl.textContent = String(selected);
             needEl.textContent = String(need());
             addBtn.disabled = selected !== need();
-            tagEl.textContent = `${need()} 入任選 / 固定價 ${currency(price())}`;
+            tagEl.textContent = `${need()} 入任選 / 組合價 ${currency(price())}`;
           };
     
           radios.forEach(r => r.addEventListener('change', () => {
@@ -782,7 +891,7 @@
           const block = document.createElement("div");
           block.className = "card combo-block";
           block.innerHTML = `<div class="content">
-            <div class="row" style="margin-bottom:6px"><b>${c.title}</b><span class="tag">${c.rule.n} 入任選 / 固定價 ${currency(c.rule.fixedPrice)}</span></div>
+            <div class="row" style="margin-bottom:6px"><b>${c.title}</b><span class="tag">${c.rule.n} 入任選 / 組合價 ${currency(c.rule.fixedPrice)}</span></div>
             ${c.choices.map(name=>{
               const unit = singlesByName[name]||0;
               return `<div class="row" style="margin:6px 0">
@@ -817,7 +926,7 @@
           const id=c.id;
           const block=document.createElement("div"); block.className="card";
           block.innerHTML=`<div class="content">
-            <div class="row" style="margin-bottom:6px"><b>${c.title}</b><span class="tag">固定配方 / 固定價 ${currency(c.rule.fixedPrice)}</span></div>
+            <div class="row" style="margin-bottom:6px"><b>${c.title}</b><span class="tag">固定組合 / 組合價 ${currency(c.rule.fixedPrice)}</span></div>
             <ul class="list" style="margin-bottom:8px">
               ${c.rule.items.map(it => `<li><div class="meta"><span>${it.name} × ${it.qty}</span><span class="muted">單價 ${currency(singlesByName[it.name]||0)}</span></div></li>`).join("")}
             </ul>
@@ -841,45 +950,89 @@
       });
     }
     
-    /****************** Render：第二頁商品清單 ******************/
-    function renderCareLists(){
-      const fill = (elId, items)=>{
-        const ul = document.getElementById(elId); ul.innerHTML = "";
-        items.forEach(s=>{
-          const li = document.createElement("li");
-          li.innerHTML = `<div class="meta"><span>${s.name}</span><span class="muted">${currency(s.unitPrice)}</span></div>
-                          <button class="btn" data-care="${s.id}">＋</button>`;
-          ul.appendChild(li);
-        });
-      };
-      fill("care-skin",   careCatalog.skin);
-      fill("care-drink",  careCatalog.drink);
-      fill("care-others", careCatalog.others);
-      fill("care-intimate", careCatalog.intimate);
-      fill("care-health", careCatalog.health);
-    
-      $$("[data-care]").forEach(btn=> btn.addEventListener("click", ()=>{
-        const s = Object.values(careCatalog).flat().find(x=> x.id===btn.dataset.care);
-        const found = cart.find(c=> c.type==='single' && c.itemId===s.id);
-        if(found){ found.qty++; }else{ cart.push({type:'single', itemId:s.id, name:s.name, unitPrice:s.unitPrice, qty:1}); }
-        renderCart();
-      }));
-    
-      // 保養三件組（固定 $4,980）
-      const addSkin3 = document.getElementById('add-skin3');
-      const setsSkin3 = document.getElementById('sets-skin3');
-      addSkin3.addEventListener('click', ()=>{
-        const sets = Math.max(1, parseInt(setsSkin3.value||"1",10));
-        const selections = [
-          { name:"胺基酸洗顏慕絲", qty:1 },
-          { name:"外泌體修護精華液", qty:1 },
-          { name:"皮脂膜修護乳霜", qty:1 },
-        ];
-        cart.push({ type:'combo', name:'保養三件組', rule:{ fixedPrice:4980 }, selections, qty:sets });
-        setsSkin3.value = "1";
-        renderCart();
-      });
+    /****************** Render：第二頁商品清單（改為輸入數量＋一次加入） ******************/
+function renderCareLists(){
+  // 共用：把某分類渲染成「名稱＋單價＋數量輸入」
+  const fill = (elId, items) => {
+    const ul = document.getElementById(elId);
+    ul.innerHTML = "";
+    items.forEach(s => {
+      const li = document.createElement("li");
+      li.innerHTML = `
+        <div class="meta">
+          <span>${s.name}</span>
+          <span class="muted">${currency(s.unitPrice)}</span>
+        </div>
+        <input type="number" min="0" value="0"
+               data-care-qty="${s.id}" style="width:64px; text-align:center; height:28px">
+      `;
+      ul.appendChild(li);
+    });
+
+    // 每個區塊底部都加一排動作欄（可只留在第一個區塊；這裡每個區塊都放一顆也OK）
+    const action = document.createElement("div");
+    action.style = "margin-top:10px; text-align:right";
+    action.innerHTML = `<button class="btn primary" data-sync-care="true">更新購物車</button>`;
+    ul.parentElement.appendChild(action);
+  };
+
+  fill("care-skin",   careCatalog.skin);
+  fill("care-drink",  careCatalog.drink);
+  fill("care-others", careCatalog.others);
+  fill("care-intimate", careCatalog.intimate);
+  fill("care-health", careCatalog.health);
+
+  // 監聽所有「加入單品」按鈕（任一顆都做同樣動作）
+  $$("[data-sync-care]").forEach(btn => btn.addEventListener("click", () => {
+    // 1) 先把「第二頁的單品」從購物車清掉（避免重複相加；採用覆寫語意）
+    const careIds = new Set(Object.values(careCatalog).flat().map(s => s.id));
+    for (let i = cart.length - 1; i >= 0; i--) {
+      const c = cart[i];
+      if (c.type === "single" && careIds.has(c.itemId)) {
+        cart.splice(i, 1);
+      }
     }
+
+    // 2) 重新依畫面上的數量建立購物車條目（數量=0 就略過）
+    const inputs = [...document.querySelectorAll("input[data-care-qty]")];
+    inputs.forEach(inp => {
+      const qty = Math.max(0, parseInt(inp.value || "0", 10) || 0);
+      if (qty > 0) {
+        // 找到該 id 對應的商品定義
+        const s = Object.values(careCatalog).flat().find(x => x.id === inp.dataset.careQty);
+        if (s) {
+          cart.push({
+            type: "single",
+            itemId: s.id,
+            name: s.name,
+            unitPrice: s.unitPrice,
+            qty
+          });
+        }
+      }
+    });
+
+    // 3) 重新渲染購物車（右側與主頁同步）；輸入框不清空
+    renderCart();
+  }));
+
+  // 保養三件組（固定 $4,980）維持原邏輯
+  const addSkin3 = document.getElementById('add-skin3');
+  const setsSkin3 = document.getElementById('sets-skin3');
+  addSkin3.addEventListener('click', () => {
+    const sets = Math.max(1, parseInt(setsSkin3.value || "1", 10));
+    const selections = [
+      { name:"胺基酸洗顏慕絲", qty:1 },
+      { name:"外泌體修護精華液", qty:1 },
+      { name:"皮脂膜修護乳霜", qty:1 },
+    ];
+    cart.push({ type:'combo', name:'保養三件組', rule:{ fixedPrice:4980 }, selections, qty:sets });
+    // 不影響單品輸入框
+    setsSkin3.value = "1";
+    renderCart();
+  });
+}
+
     
     /****************** Render：購物車（同步到兩頁的顯示區） ******************/
     function renderCart(){
@@ -922,7 +1075,7 @@
           <div>
             <div class='name'>組合｜${ci.name}</div>
             <div class='muted'>${seltext}</div>
-            <span class='tag'>固定價 ${currency(ci.rule.fixedPrice)} / 組</span>
+            <span class='tag'>組合價 ${currency(ci.rule.fixedPrice)} / 組</span>
           </div>
           <div class='right'>
             <div class='qtyctl'>
