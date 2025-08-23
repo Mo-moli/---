@@ -49,7 +49,7 @@
     display:grid;
     grid-template-columns: repeat(6, 1fr); /* 上排 6 張卡剛好一列 */
     gap:16px;
-    align-items:start;
+    align-items: stretch;
   }
   /* 響應式：中螢幕 3 欄，小螢幕 2 / 1 欄 */
   @media (max-width:1280px){ .grid{ grid-template-columns: repeat(3, 1fr); } }
@@ -142,6 +142,56 @@
     th,td{ padding:5px 5px; font-size:12px }
     .btn{ display:none!important }
   }
+  /* ===== 組合優惠：標題字體與數量輸入框（比照三大套組） ===== */
+    .combo-block b{
+      font-size:15px;            /* 三大套組卡片標題是 15px */
+      line-height:1.25;
+    }
+
+    .combo-block input[type="number"]{
+      width:58px !important;     /* 與三大套組一致 */
+      height:28px !important;    /* 與三大套組一致 */
+        text-align:center !important;
+      }
+
+/* 暢/衛/C/L/魚/夜/敏/莓（mix8）字體調整：與三大套組品項一致 */
+#qtywrap-mix8 label{
+  font-size:12.5px;   /* 與三大套組品項一致 */
+}
+#qtywrap-mix8 .muted{
+  font-size:12px;     /* 價格的小字維持較小 */
+}
+
+/* MNT 蛋白粉 3 入任選（罐／袋）字體調整：與三大套組品項一致 */
+[data-mntpack]{
+  font-size:12.5px;  /* 跟三大套組表格品項字體一樣 */
+}
+
+/* 最穩定寫法：直接指定那兩列 */
+.combo-block .mntpack-row{
+  font-size:12.5px;   /* 與三大套組品項一致 */
+}
+
+/* ===== 右側「組合優惠價」品名字級調整（對齊三大套組 12.5px） ===== */
+/* 只套用在右側 combos-right 的兩組 pickNFixed 卡片（早晚安／茶包三入） */
+#combos-right .combo-block:has([data-add-combo="earlyLate"]) .row:has(input[type="number"]) > span,
+#combos-right .combo-block:has([data-add-combo="tea3"]) .row:has(input[type="number"]) > span {
+  font-size: 12.5px;   /* 與三大套組品項一致 */
+}
+
+/* 價格小字維持 12px */
+#combos-right .combo-block:has([data-add-combo="earlyLate"]) .row:has(input[type="number"]) > span .muted,
+#combos-right .combo-block:has([data-add-combo="tea3"]) .row:has(input[type="number"]) > span .muted {
+  font-size: 12px;
+}
+
+
+/* 固定配方清單（優先盈／油澱雙切、優先盈／雙L益菌糖） */
+#combos-right .list .meta span:not(.muted) { font-size:12.5px; }
+/* 價格小字維持較小 */
+#combos-right .list .meta .muted { font-size:12px; }
+
+
 </style>
 </head>
 <body>
@@ -174,8 +224,8 @@
             <tbody id="classicBody"></tbody>
           </table>
           <div class="content stack" style="padding:8px 0 0">
-            <div class="row"><span class="pill">可搭價</span><b class="price" id="classicDeal"></b></div>
             <div class="row"><span>商品小計</span><b class="price" id="classicSub"></b></div>
+            <div class="row"><span class="pill">可搭價</span><b class="price" id="classicDeal"></b></div>
             <div class="muted">初 / 複診可搭 $15,000</div>
             <div class="muted" id="classicHint"></div>
             <div class="row"><button class="btn primary" data-add-bundle="classic">加入整組</button></div>
@@ -191,8 +241,8 @@
             <tbody id="superBody"></tbody>
           </table>
           <div class="content stack" style="padding:8px 0 0">
-            <div class="row"><span class="pill">可搭價</span><b class="price" id="superDeal"></b></div>
             <div class="row"><span>商品小計</span><b class="price" id="superSub"></b></div>
+            <div class="row"><span class="pill">可搭價</span><b class="price" id="superDeal"></b></div>
             <div class="muted">初 / 複診可搭 $30,000</div>
             <div class="muted" id="superHint"></div>
             <div class="row"><button class="btn primary" data-add-bundle="super">加入整組</button></div>
@@ -208,8 +258,8 @@
             <tbody id="lightBody"></tbody>
           </table>
           <div class="content stack" style="padding:8px 0 0">
-            <div class="row"><span class="pill">可搭價</span><b class="price" id="lightDeal"></b></div>
             <div class="row"><span>商品小計</span><b class="price" id="lightSub"></b></div>
+            <div class="row"><span class="pill">可搭價</span><b class="price" id="lightDeal"></b></div>
             <div class="muted">只限核診 $9,800</div>
             <div class="muted" id="lightHint"></div>
             <div class="row"><button class="btn primary" data-add-bundle="light">加入整組</button></div>
@@ -325,651 +375,661 @@
     </div>
   </section>
 
-<script>
-/****************** 資料 ******************/
-const currency = n => "$" + (n||0).toLocaleString();
-
-// 單品（主頁）
-const singles = [
-  { id:"mnt_protein", name:"MNT 蛋白粉", unitPrice:1880 },
-  { id:"light_digest", name:"暢便輕", unitPrice:1200 },
-  { id:"wei_shijia", name:"衛適佳", unitPrice:1200 },
-  { id:"jiao_yuan_c", name:"嬌圓C", unitPrice:1200 },
-  { id:"morning_capsule", name:"早安膠囊", unitPrice:900 },
-  { id:"night_chew", name:"晚安咀嚼錠", unitPrice:900 },
-  { id:"oil_cut", name:"油澱雙切", unitPrice:600 },
-  { id:"elite", name:"優先盈", unitPrice:1500 },
-  { id:"clean_mouth", name:"清口樂", unitPrice:600 },
-  { id:"double_l", name:"雙L益菌糖", unitPrice:1200 },
-  { id:"fish_oil", name:"黃晶魚油", unitPrice:1300 },
-  { id:"night_relax", name:"夜允眠", unitPrice:1300 },
-  { id:"sensitive", name:"允敏通", unitPrice:1300 },
-  { id:"berry", name:"允媄莓", unitPrice:1300 }
-];
-
-// ===== 新增：無齡醫師保養品 & 茶飲（第二頁） =====
-const careCatalog = {
-  skin: [
-    { id:"foam_cleanser", name:"胺基酸洗顏慕絲", unitPrice:680 },
-    { id:"exo_serum", name:"外泌體修護精華液", unitPrice:2500 },
-    { id:"lipid_cream", name:"皮脂膜修護乳霜", unitPrice:2050 },
-    { id:"tinted_sunscreen", name:"輕透潤色防曬乳", unitPrice:980 },
-    { id:"exo_mask_single", name:"外泌體修護面膜（單片）", unitPrice:180 },
-    { id:"exo_mask_box", name:"外泌體修護面膜（一盒5片）", unitPrice:850 },
-  ],
-  drink: [
-    { id:"yogurt", name:"允優格（限台北無齡自取）", unitPrice:680 },
-    { id:"tea_calm", name:"好好安心茶", unitPrice:600 },
-    { id:"tea_beauty", name:"美美漂漂茶", unitPrice:600 },
-    { id:"tea_energy", name:"滿滿活力茶", unitPrice:600 },
-  ],
-  others: [
-    { id:"ketone_device", name:"氣酮機", unitPrice:3950 },
-    { id:"blender_bottle", name:"Blender 搖杯", unitPrice:380 },
-  ],
-  intimate: [
-    { id:"intimate_firm", name:"私密緊實精萃", unitPrice:3110 },
-    { id:"intimate_clean", name:"私密淨潤精萃", unitPrice:1880 },
-    { id:"intimate_hyal", name:"玻尿酸私密露", unitPrice:550 },
-  ],
-  health: [
-    { id:"b1_patch", name:"B1 活力貼片", unitPrice:780 },
-  ]
-};
-
-const singlesByName = Object.fromEntries(
-  [...singles, ...Object.values(careCatalog).flat()].map(s=>[s.name, s.unitPrice])
-);
-
-// 套組定義（主頁）
-const bundleDefs = {
-  classic: {
-    title:"經典套組", displayPrice:15000, minPrice:16140,
-    items:[
-      ["MNT 蛋白粉",3], ["暢便輕",2], ["衛適佳",1], ["嬌圓C",2], ["早安膠囊",1], ["晚安咀嚼錠",1], ["油澱雙切",1], ["優先盈",1], ["清口樂",1], ["4+2R 追蹤",1]
-    ]
-  },
-  super: {
-    title:"超值升級套組", displayPrice:30000, minPrice:33340,
-    items:[
-      ["MNT 蛋白粉",8], ["暢便輕",4], ["衛適佳",2], ["嬌圓C",3], ["早安膠囊",2], ["晚安咀嚼錠",2], ["油澱雙切",1], ["優先盈",1], ["清口樂",1], ["雙L益菌糖",1], ["4+2R 追蹤",2]
-    ]
-  },
-  light: {
-    title:"輕盈套組", displayPrice:9800, minPrice:9840,
-    items:[
-      ["MNT 蛋白粉",3], ["暢便輕",1], ["嬌圓C",1], ["早安膠囊",1], ["晚安咀嚼錠",1], ["4+2R 追蹤",1]
-    ]
-  }
-};
-
-// MNT 罐 / 袋 預設（總數分別為 3 / 8 / 3）
-const mntPreset = {
-  classic: { can:1, bag:2 },
-  super:   { can:3, bag:5 },
-  light:   { can:1, bag:2 }
-};
-
-// 組合（主頁）
-const combos = [
-  { id:"mnt3pack", title:"MNT 蛋白粉 3 入任選（罐／袋）",
-    rule:{ type:"mntCanBagTotalFixed", n:3, fixedPrice:5000, init:{can:1, bag:2} }, product:"MNT 蛋白粉" },
-  { id:"mix8", title:"暢/衛/C/L/魚/夜/敏/莓 組合",
-    rule:{ type:"pickTierFixed", tiers:[ {n:6, price:6300}, {n:3, price:3300} ] },
-    choices:["暢便輕","衛適佳","嬌圓C","雙L益菌糖","黃晶魚油","夜允眠","允敏通","允媄莓"] },
-  { id:"earlyLate", title:"早晚安組合", rule:{type:"pickNFixed", n:4, fixedPrice:3200}, choices:["早安膠囊","晚安咀嚼錠"] },
-  { id:"goldOil", title:"金銀包組合", rule:{ type:"exactBundleFixed", fixedPrice:5000, items:[ {name:"優先盈", qty:3}, {name:"油澱雙切", qty:2} ] } },
-  { id:"gradFav", title:"畢業生最愛組合", rule:{ type:"exactBundleFixed", fixedPrice:6200, items:[ {name:"優先盈", qty:3}, {name:"雙L益菌糖", qty:2} ] } },
-  { id:"tea3", title:"茶包三入任選", rule:{ type:"pickNFixed", n: 3, fixedPrice: 1500 }, choices: ["好好安心茶","美美漂漂茶","滿滿活力茶"] }
-];
-
-/****************** 狀態 ******************/
-const cart = [];
-
-function initialStateFromBundle(key){
-  const def = bundleDefs[key];
-  const o = {};
-  def.items.forEach(([name,qty])=>{
-    if(name === "MNT 蛋白粉"){ o[name] = { ...mntPreset[key] }; }
-    else{ o[name] = qty; }
-  });
-  return o;
-}
-const state = {
-  classic: initialStateFromBundle('classic'),
-  super:   initialStateFromBundle('super'),
-  light:   initialStateFromBundle('light')
-};
-
-/****************** 工具 ******************/
-const $ = s=>document.querySelector(s);
-const $$ = s=>[...document.querySelectorAll(s)];
-function bundleSubtotal(key){
-  const o = state[key]; let sum = 0;
-  for(const [name,qty] of Object.entries(o)){
-    if(name === "MNT 蛋白粉"){
-      const unit = singlesByName[name]||0;
-      const can = (qty && qty.can)? +qty.can : 0;
-      const bag = (qty && qty.bag)? +qty.bag : 0;
-      sum += (can + bag) * unit;
-    }else{
-      sum += (singlesByName[name]||0) * (+qty||0);
-    }
-  }
-  return sum;
-}
-
-/****************** Render：三個套組（主頁） ******************/
-function renderBundle(key){
-  const def = bundleDefs[key];
-  const tbody = document.getElementById(key+"Body");
-  tbody.innerHTML = def.items.map(([name,qty])=>{
-    if(name === "MNT 蛋白粉"){
-      const cur = state[key][name] || { can:0, bag:0 };
-      const total = (+cur.can||0) + (+cur.bag||0);
-      return `<tr class="mnt-row">
-        <td>
-          <span class="mnt-name">${name}</span>
-          <div class="mnt-subline">
-            <label>罐 <input type="number" min="0" step="1" value="${cur.can}" data-mnt="${key}:can"></label>
-            <label>袋 <input type="number" min="0" step="1" value="${cur.bag}" data-mnt="${key}:bag"></label>
-          </div>
-        </td>
-        <td class="qty"><span class="mnt-qty-total" id="${key}-mnt-total">${total}</span></td>
-      </tr>`;
-    }
-    const val = state[key][name] ?? qty;
-    return `<tr>
-      <td>${name}</td>
-      <td class="qty"><input type="number" min="0" step="1" value="${val}" data-bq="${key}:${name}" style="width:58px;text-align:center;height:28px"></td>
-    </tr>`;
-  }).join("");
-
-  const sub = bundleSubtotal(key);
-  document.getElementById(key+"Deal").textContent = currency(sub||def.displayPrice);
-  document.getElementById(key+"Sub").textContent  = currency(sub);
-  const hint = document.getElementById(key+"Hint");
-  hint.textContent = sub < def.minPrice ? "目前商品小計低於最低應付，加入購物車時將自動補差。" : "已達或超過最低應付，將以商品小計計價。";
-
-  // 綁一般品 input
-  $$(`input[data-bq^="${key}:"]`).forEach(i=>{
-    i.addEventListener("input",()=>{
-      const [k,name] = i.dataset.bq.split(":");
-      state[k][name] = Math.max(0, parseInt(i.value||"0")||0);
-      const s = bundleSubtotal(k);
-      document.getElementById(k+"Deal").textContent = currency(s||bundleDefs[k].displayPrice);
-      document.getElementById(k+"Sub").textContent  = currency(s);
-      document.getElementById(k+"Hint").textContent = s < bundleDefs[k].minPrice ? "目前商品小計低於最低應付，加入購物車時將自動補差。" : "已達或超過最低應付，將以商品小計計價。";
-    });
-  });
-
-  // 綁 MNT 罐/袋 input
-  $$(`input[data-mnt^='${key}:']`).forEach(i=>{
-    i.addEventListener('input',()=>{
-      const [k,which] = i.dataset.mnt.split(':');
-      const obj = state[k]["MNT 蛋白粉"] || {can:0, bag:0};
-      obj[which] = Math.max(0, parseInt(i.value||'0')||0);
-      state[k]["MNT 蛋白粉"] = obj;
-
-      const total = (+obj.can||0) + (+obj.bag||0);
-      const totalEl = document.getElementById(`${k}-mnt-total`);
-      if(totalEl) totalEl.textContent = String(total);
-
-      const s = bundleSubtotal(k);
-      document.getElementById(k+"Deal").textContent = currency(s||bundleDefs[k].displayPrice);
-      document.getElementById(k+"Sub").textContent  = currency(s);
-      document.getElementById(k+"Hint").textContent = s < bundleDefs[k].minPrice ? "目前商品小計低於最低應付，加入購物車時將自動補差。" : "已達或超過最低應付，將以商品小計計價。";
-    });
-  });
-}
-
-/****************** Render：主頁單品 ******************/
-function renderSingles(){
-  const ul = document.getElementById("singlesList");
-  ul.innerHTML = "";
-  singles.forEach(s=>{
-    const li = document.createElement("li");
-    li.innerHTML = `<div class="meta"><span>${s.name}</span><span class="muted">${currency(s.unitPrice)}</span></div>
-                    <button class="btn" data-single="${s.id}">＋</button>`;
-    ul.appendChild(li);
-  });
-  $$("[data-single]").forEach(btn=> btn.addEventListener("click",()=>{
-    const s = [...singles, ...Object.values(careCatalog).flat()].find(x=>x.id===btn.dataset.single);
-    const found = cart.find(c=> c.type==='single' && c.itemId===s.id);
-    if(found){ found.qty++; }else{ cart.push({type:'single', itemId:s.id, name:s.name, unitPrice:s.unitPrice, qty:1}); }
-    renderCart();
-  }));
-}
-
-/****************** Render：組合（主頁，分流到主容器 & 右欄） ******************/
-function renderCombos(){
-  const mainWrap  = document.getElementById("combos");
-  const rightWrap = document.getElementById("combos-right");
-  mainWrap.innerHTML = "";
-  if (rightWrap) rightWrap.innerHTML = "";
-
-  // 仍保留右側精選四組（照舊）
-  const RIGHT_COMBO_IDS = new Set(["earlyLate", "goldOil", "gradFav", "tea3"]);
-
-  const appendBlock = (el) => (container) => container && container.appendChild(el);
-
-  combos.forEach(c=>{
-    const target = RIGHT_COMBO_IDS.has(c.id) ? rightWrap : mainWrap;
-
-    if(c.rule.type === "mntCanBagTotalFixed"){
-      const id = c.id, n=c.rule.n;
-      const initCan = (c.rule.init && c.rule.init.can) || 0;
-      const initBag = (c.rule.init && c.rule.init.bag) || 0;
-
-      const block = document.createElement("div");
-      block.className = "card";
-      block.innerHTML = `<div class="content">
-        <div class="row" style="margin-bottom:6px">
-          <b>${c.title}</b>
-          <span class="tag">${n} 入任選 / 固定價 ${currency(c.rule.fixedPrice)}</span>
-        </div>
-        <div class="row" style="margin:6px 0"><span>${c.product}（罐）</span><input type="number" min="0" value="${initCan}" data-mntpack="${id}:can" style="width:58px;text-align:center;height:28px"></div>
-        <div class="row" style="margin:6px 0"><span>${c.product}（袋）</span><input type="number" min="0" value="${initBag}" data-mntpack="${id}:bag" style="width:58px;text-align:center;height:28px"></div>
-        <div class="row" style="margin-top:6px">
-          <div class="muted">總計 <b id="cnt-${id}">${initCan+initBag}</b> / ${n}</div>
-          <button class="btn primary" data-add-mntpack="${id}" ${(initCan+initBag)===n? "":"disabled"}>加入組合包</button>
-        </div>
-      </div>`;
-      appendBlock(block)(target);
-
-      const canInput = document.querySelector(`input[data-mntpack='${id}:can']`);
-      const bagInput = document.querySelector(`input[data-mntpack='${id}:bag']`);
-      const btn = document.querySelector(`[data-add-mntpack='${id}']`);
-      const cnt = document.getElementById(`cnt-${id}`);
-      const update=()=>{
-        const can=+canInput.value||0, bag=+bagInput.value||0, sum=can+bag;
-        cnt.textContent=String(sum); btn.disabled = sum!==n;
-      };
-      canInput.addEventListener('input',update);
-      bagInput.addEventListener('input',update);
-      btn.addEventListener('click', ()=>{
-        const can=+canInput.value||0, bag=+bagInput.value||0;
-        const selections=[]; if(can>0) selections.push({name:`${c.product}（罐）`, qty:can});
-        if(bag>0) selections.push({name:`${c.product}（袋）`, qty:bag});
-        cart.push({ type:'combo', name:c.title, rule:c.rule, selections, qty:1 });
-        canInput.value=c.rule.init?.can||0; bagInput.value=c.rule.init?.bag||0; update(); renderCart();
-      });
-      update(); return;
-    }
-
-    if (c.rule.type === "pickTierFixed") {
-  const id = c.id;
-  const [tierA, tierB] = c.rule.tiers; // 例如 {n:6, price:6300}、{n:3, price:3300}
-  const block = document.createElement("div");
-  block.className = "card";
-  block.innerHTML = `
-    <div class="content">
-      <div class="row" style="margin-bottom:6px">
-        <b>${c.title}</b>
-        <span class="tag" id="tag-${id}">${tierA.n} 入任選 / 固定價 ${currency(tierA.price)}</span>
-      </div>
-
-      <!-- 6入 / 3入 方案切換 -->
-      <div class="row" style="gap:16px; margin:6px 0 10px">
-        <label style="display:inline-flex;align-items:center;gap:6px">
-          <input type="radio" name="tier-${id}" value="0" checked>
-          <span>${tierA.n} 入 / ${currency(tierA.price)}</span>
-        </label>
-        <label style="display:inline-flex;align-items:center;gap:6px">
-          <input type="radio" name="tier-${id}" value="1">
-          <span>${tierB.n} 入 / ${currency(tierB.price)}</span>
-        </label>
-      </div>
-
-      <!-- 可輸入「數量」的清單（兩欄） -->
-      <div id="qtywrap-${id}" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px">
-        ${c.choices.map(name=>{
-          const unit = singlesByName[name]||0;
-          const safeId = `${id}:${name}`;
-          return `
-            <label style="display:flex; align-items:center; gap:8px; border:1px solid var(--border); border-radius:8px; padding:6px 8px; justify-content:space-between">
-              <span>${name} <span class="muted">${currency(unit)}</span></span>
-              <input type="number" min="0" value="0" data-qty="${safeId}" style="width:64px; text-align:center; height:28px">
-            </label>
-          `;
-        }).join("")}
-      </div>
-
-      <div class="row" style="margin-top:6px">
-        <div class="muted">已選 <b id="cnt-${id}">0</b> / <span id="need-${id}">${tierA.n}</span></div>
-        <button class="btn primary" data-add-mix8="${id}" disabled>加入組合包</button>
-      </div>
-    </div>
-  `;
-  appendBlock(block)(target);
-
-  // 控制元件
-  const radios = [...document.querySelectorAll(`input[name='tier-${id}']`)];
-  const qtyInputs = [...document.querySelectorAll(`input[data-qty^='${id}:']`)];
-  const tagEl  = document.getElementById(`tag-${id}`);
-  const cntEl  = document.getElementById(`cnt-${id}`);
-  const needEl = document.getElementById(`need-${id}`);
-  const addBtn = document.querySelector(`[data-add-mix8='${id}']`);
-
-  let currentTier = 0; // 0 -> tierA(6入), 1 -> tierB(3入)
-
-  const need = () => currentTier === 0 ? tierA.n : tierB.n;
-  const price = () => currentTier === 0 ? tierA.price : tierB.price;
-
-  // 計算目前總數量
-  const sumQty = () => qtyInputs.reduce((s, i) => s + (+i.value || 0), 0);
-
-  // 更新畫面/按鈕狀態
-  const update = () => {
-    const selected = sumQty();
-    cntEl.textContent = String(selected);
-    needEl.textContent = String(need());
-    addBtn.disabled = selected !== need();
-    tagEl.textContent = `${need()} 入任選 / 固定價 ${currency(price())}`;
-  };
-
-  // 切換 6入/3入：清空數量，重算
-  radios.forEach(r => r.addEventListener('change', () => {
-    currentTier = +r.value;
-    qtyInputs.forEach(i => i.value = "0");
-    update();
-  }));
-
-  // 任一品項數量改變就重算
-  qtyInputs.forEach(i => i.addEventListener('input', () => {
-    // 避免負數或 NaN
-    const v = Math.max(0, parseInt(i.value || "0", 10) || 0);
-    i.value = String(v);
-    update();
-  }));
-
-  // 加入購物車
-  addBtn.addEventListener('click', () => {
-    // 收集有填數量的品項
-    const selections = qtyInputs
-      .map(i => {
-        const name = i.dataset.qty.split(':')[1];
-        const qty = +i.value || 0;
-        return { name, qty };
-      })
-      .filter(s => s.qty > 0);
-
-    // 寫入購物車，固定價以 tier 對應
-    cart.push({
-      type: 'combo',
-      name: `${c.title}（${need()}入）`,
-      rule: { fixedPrice: price() },
-      selections,
-      qty: 1
-    });
-
-    // 重置輸入框與狀態
-    qtyInputs.forEach(i => i.value = "0");
-    update();
-    renderCart();
-  });
-
-  // 一開始先算一次
-  update();
-  return;
-}
-
-
-    if(c.rule.type === "pickNFixed"){
-      const id = c.id;
-      const block = document.createElement("div");
-      block.className = "card";
-      block.innerHTML = `<div class="content">
-        <div class="row" style="margin-bottom:6px"><b>${c.title}</b><span class="tag">${c.rule.n} 入任選 / 固定價 ${currency(c.rule.fixedPrice)}</span></div>
-        ${c.choices.map(name=>{
-          const unit = singlesByName[name]||0;
-          return `<div class="row" style="margin:6px 0">
-            <span>${name} <span class="muted">${currency(unit)}</span></span>
-            <input type="number" min="0" value="0" data-choice="${id}:${name}" style="width:58px;text-align:center;height:28px">
-          </div>`;
-        }).join("")}
-        <div class="row" style="margin-top:6px">
-          <div class="muted">已選 <b id="cnt-${id}">0</b> / ${c.rule.n}</div>
-          <button class="btn primary" data-add-combo="${id}" disabled>加入組合包</button>
-        </div>
-      </div>`;
-      appendBlock(block)(target);
-
-      const inputs = [...document.querySelectorAll(`input[data-choice^='${id}:']`)];
-      const btn = document.querySelector(`[data-add-combo='${id}']`);
-      const cnt = document.getElementById(`cnt-${id}`);
-      const update=()=>{
-        const sum = inputs.reduce((s,i)=> s + (+i.value||0), 0);
-        cnt.textContent = String(sum); btn.disabled = sum !== c.rule.n;
-      };
-      inputs.forEach(i=> i.addEventListener('input', update));
-      btn.addEventListener('click', ()=>{
-        const selections = inputs.map(i=>({name: i.dataset.choice.split(':')[1], qty: +i.value||0})).filter(x=>x.qty>0);
-        cart.push({ type:'combo', name:c.title, rule:c.rule, selections, qty:1 });
-        inputs.forEach(i=> i.value = 0); update(); renderCart();
-      });
-      update(); return;
-    }
-
-    if (c.rule.type === "exactBundleFixed") {
-      const id=c.id;
-      const block=document.createElement("div"); block.className="card";
-      block.innerHTML=`<div class="content">
-        <div class="row" style="margin-bottom:6px"><b>${c.title}</b><span class="tag">固定配方 / 固定價 ${currency(c.rule.fixedPrice)}</span></div>
-        <ul class="list" style="margin-bottom:8px">
-          ${c.rule.items.map(it => `<li><div class="meta"><span>${it.name} × ${it.qty}</span><span class="muted">單價 ${currency(singlesByName[it.name]||0)}</span></div></li>`).join("")}
-        </ul>
-        <div class="row" style="margin-top:6px">
-          <label class="muted" style="display:inline-flex;align-items:center;gap:6px"><span>組數</span><input type="number" min="1" value="1" id="sets-${id}" style="width:64px;text-align:center;height:28px"></label>
-          <button class="btn primary" data-add-exact="${id}">加入組合包</button>
-        </div>
-      </div>`;
-      appendBlock(block)(target);
-
-      const addBtn = document.querySelector(`[data-add-exact='${id}']`);
-      const setsInput = document.getElementById(`sets-${id}`);
-      addBtn.addEventListener("click", () => {
-        const sets = Math.max(1, parseInt(setsInput.value || "1", 10));
-        const selections = c.rule.items.map(it => ({ name: it.name, qty: it.qty }));
-        cart.push({ type:"combo", name:c.title, rule:{ fixedPrice:c.rule.fixedPrice }, selections, qty:sets });
-        setsInput.value = "1"; renderCart();
-      });
-      return;
-    }
-  });
-}
-
-/****************** Render：第二頁商品清單 ******************/
-function renderCareLists(){
-  const fill = (elId, items)=>{
-    const ul = document.getElementById(elId); ul.innerHTML = "";
-    items.forEach(s=>{
-      const li = document.createElement("li");
-      li.innerHTML = `<div class="meta"><span>${s.name}</span><span class="muted">${currency(s.unitPrice)}</span></div>
-                      <button class="btn" data-care="${s.id}">＋</button>`;
-      ul.appendChild(li);
-    });
-  };
-  fill("care-skin",   careCatalog.skin);
-  fill("care-drink",  careCatalog.drink);
-  fill("care-others", careCatalog.others);
-  fill("care-intimate", careCatalog.intimate);
-  fill("care-health", careCatalog.health);
-
-  $$("[data-care]").forEach(btn=> btn.addEventListener("click", ()=>{
-    const s = Object.values(careCatalog).flat().find(x=> x.id===btn.dataset.care);
-    const found = cart.find(c=> c.type==='single' && c.itemId===s.id);
-    if(found){ found.qty++; }else{ cart.push({type:'single', itemId:s.id, name:s.name, unitPrice:s.unitPrice, qty:1}); }
-    renderCart();
-  }));
-
-  // 保養三件組（固定 $4,980）
-  const addSkin3 = document.getElementById('add-skin3');
-  const setsSkin3 = document.getElementById('sets-skin3');
-  addSkin3.addEventListener('click', ()=>{
-    const sets = Math.max(1, parseInt(setsSkin3.value||"1",10));
-    const selections = [
-      { name:"胺基酸洗顏慕絲", qty:1 },
-      { name:"外泌體修護精華液", qty:1 },
-      { name:"皮脂膜修護乳霜", qty:1 },
+  <script>
+    /****************** 資料 ******************/
+    const currency = n => "$" + (n||0).toLocaleString();
+    
+    // 單品（主頁）
+    const singles = [
+      { id:"mnt_protein", name:"MNT 蛋白粉", unitPrice:1880 },
+      { id:"light_digest", name:"暢便輕", unitPrice:1200 },
+      { id:"wei_shijia", name:"衛適佳", unitPrice:1200 },
+      { id:"jiao_yuan_c", name:"嬌圓C", unitPrice:1200 },
+      { id:"morning_capsule", name:"早安膠囊", unitPrice:900 },
+      { id:"night_chew", name:"晚安咀嚼錠", unitPrice:900 },
+      { id:"oil_cut", name:"油澱雙切", unitPrice:600 },
+      { id:"elite", name:"優先盈", unitPrice:1500 },
+      { id:"clean_mouth", name:"清口樂", unitPrice:600 },
+      { id:"double_l", name:"雙L益菌糖", unitPrice:1200 },
+      { id:"fish_oil", name:"黃晶魚油", unitPrice:1300 },
+      { id:"night_relax", name:"夜允眠", unitPrice:1300 },
+      { id:"sensitive", name:"允敏通", unitPrice:1300 },
+      { id:"berry", name:"允媄莓", unitPrice:1300 }
     ];
-    cart.push({ type:'combo', name:'保養三件組', rule:{ fixedPrice:4980 }, selections, qty:sets });
-    setsSkin3.value = "1";
-    renderCart();
-  });
-}
-
-/****************** Render：購物車（同步到兩頁的顯示區） ******************/
-function renderCart(){
-  const boxMain = document.getElementById('cartItems'); if(boxMain) boxMain.innerHTML = '';
-  const boxCare = document.getElementById('cartItems-care'); if(boxCare) boxCare.innerHTML = '';
-
-  let subtotal = 0; let bundleNote = '';
-
-  cart.forEach((ci, idx)=>{
-    const rowHTMLSingle = (line)=>`
-      <div><div class='name'>單品｜${ci.name}</div><div class='muted'>單價 ${currency(ci.unitPrice)}</div></div>
-      <div class='right'>
-        <div class='qtyctl'>
-          <button class='btn' data-dec='${idx}'>−</button>
-          <span>${ci.qty}</span>
-          <button class='btn' data-inc='${idx}'>＋</button>
-          <button class='btn' data-del='${idx}' title='刪除'>✕</button>
-        </div>
-        <div class='price'>${currency(line)}</div>
-      </div>`;
-
-    const rowHTMLBundle = (line,diff,sel)=>`
-      <div>
-        <div class='name'>套組｜${ci.name}</div>
-        ${sel?`<div class='muted'>${sel}</div>`:''}
-        <div class='muted'>可搭價 <b>${currency(ci.displayPrice)}</b>（若不足自動補差）</div>
-        ${diff>0?`<div class='warn'>門檻補差 ${currency(diff)} / 組</div>`:''}
-      </div>
-      <div class='right'>
-        <div class='qtyctl'>
-          <button class='btn' data-dec='${idx}'>−</button>
-          <span>${ci.qty}</span>
-          <button class='btn' data-inc='${idx}'>＋</button>
-          <button class='btn' data-del='${idx}' title='刪除'>✕</button>
-        </div>
-        <div class='price'>${currency(line)}</div>
-      </div>`;
-
-    const rowHTMLCombo = (line,seltext)=>`
-      <div>
-        <div class='name'>組合｜${ci.name}</div>
-        <div class='muted'>${seltext}</div>
-        <span class='tag'>固定價 ${currency(ci.rule.fixedPrice)} / 組</span>
-      </div>
-      <div class='right'>
-        <div class='qtyctl'>
-          <button class='btn' data-dec='${idx}'>−</button>
-          <span>${ci.qty}</span>
-          <button class='btn' data-inc='${idx}'>＋</button>
-          <button class='btn' data-del='${idx}' title='刪除'>✕</button>
-        </div>
-        <div class='price'>${currency(line)}</div>
-      </div>`;
-
-    let row;
-    if(ci.type==='single'){
-      const line = ci.unitPrice * ci.qty; subtotal += line;
-      row = document.createElement('div'); row.className='cart-item'; row.innerHTML = rowHTMLSingle(line);
-    } else if(ci.type==='bundle'){
-      const line = Math.max(ci.displayPrice, ci.minPrice) * ci.qty; subtotal += line;
-      const diff = Math.max(0, ci.minPrice - ci.displayPrice);
-      const sel = ci.selections?.map(s=>`${s.name}×${s.qty}`).join('、') || '';
-      row = document.createElement('div'); row.className='cart-item'; row.innerHTML = rowHTMLBundle(line,diff,sel);
-      if(diff>0) bundleNote = '部分套組未達最低價，已自動計入門檻補差。';
-    } else { // combo
-      const line = ci.rule.fixedPrice * ci.qty; subtotal += line;
-      const seltext = ci.selections.map(s=>`${s.name}×${s.qty}`).join('、');
-      row = document.createElement('div'); row.className='cart-item'; row.innerHTML = rowHTMLCombo(line,seltext);
+    
+    // ===== 新增：無齡醫師保養品 & 茶飲（第二頁） =====
+    const careCatalog = {
+      skin: [
+        { id:"foam_cleanser", name:"胺基酸洗顏慕絲", unitPrice:680 },
+        { id:"exo_serum", name:"外泌體修護精華液", unitPrice:2500 },
+        { id:"lipid_cream", name:"皮脂膜修護乳霜", unitPrice:2050 },
+        { id:"tinted_sunscreen", name:"輕透潤色防曬乳", unitPrice:980 },
+        { id:"exo_mask_single", name:"外泌體修護面膜（單片）", unitPrice:180 },
+        { id:"exo_mask_box", name:"外泌體修護面膜（一盒5片）", unitPrice:850 },
+      ],
+      drink: [
+        { id:"yogurt", name:"允優格（限台北無齡自取）", unitPrice:680 },
+        { id:"tea_calm", name:"好好安心茶", unitPrice:600 },
+        { id:"tea_beauty", name:"美美漂漂茶", unitPrice:600 },
+        { id:"tea_energy", name:"滿滿活力茶", unitPrice:600 },
+      ],
+      others: [
+        { id:"ketone_device", name:"氣酮機", unitPrice:3950 },
+        { id:"blender_bottle", name:"Blender 搖杯", unitPrice:380 },
+      ],
+      intimate: [
+        { id:"intimate_firm", name:"私密緊實精萃", unitPrice:3110 },
+        { id:"intimate_clean", name:"私密淨潤精萃", unitPrice:1880 },
+        { id:"intimate_hyal", name:"玻尿酸私密露", unitPrice:550 },
+      ],
+      health: [
+        { id:"b1_patch", name:"B1 活力貼片", unitPrice:780 },
+      ]
+    };
+    
+    const singlesByName = Object.fromEntries(
+      [...singles, ...Object.values(careCatalog).flat()].map(s=>[s.name, s.unitPrice])
+    );
+    
+    // 套組定義（主頁）—新增 discount
+    const bundleDefs = {
+      classic: {
+        title:"經典套組", minPrice:16140, discount:1140,
+        items:[
+          ["MNT 蛋白粉",3], ["暢便輕",2], ["衛適佳",1], ["嬌圓C",2], ["早安膠囊",1], ["晚安咀嚼錠",1], ["油澱雙切",1], ["優先盈",1], ["清口樂",1], ["4+2R 追蹤",1]
+        ]
+      },
+      super: {
+        title:"超值升級套組", minPrice:33340, discount:3340,
+        items:[
+          ["MNT 蛋白粉",8], ["暢便輕",4], ["衛適佳",2], ["嬌圓C",3], ["早安膠囊",2], ["晚安咀嚼錠",2], ["油澱雙切",1], ["優先盈",1], ["清口樂",1], ["雙L益菌糖",1], ["4+2R 追蹤",2]
+        ]
+      },
+      light: {
+        title:"輕盈套組", minPrice:9840, discount:40,
+        items:[
+          ["MNT 蛋白粉",3], ["暢便輕",1], ["嬌圓C",1], ["早安膠囊",1], ["晚安咀嚼錠",1], ["4+2R 追蹤",1]
+        ]
+      }
+    };
+    
+    // MNT 罐 / 袋 預設（總數分別為 3 / 8 / 3）
+    const mntPreset = {
+      classic: { can:1, bag:2 },
+      super:   { can:3, bag:5 },
+      light:   { can:1, bag:2 }
+    };
+    
+    // 組合（主頁）
+    const combos = [
+      { id:"mnt3pack", title:"MNT 蛋白粉 3 入任選（罐／袋）",
+        rule:{ type:"mntCanBagTotalFixed", n:3, fixedPrice:5000, init:{can:1, bag:2} }, product:"MNT 蛋白粉" },
+      { id:"mix8", title:"暢/衛/C/L/魚/夜/敏/莓 組合",
+        rule:{ type:"pickTierFixed", tiers:[ {n:6, price:6300}, {n:3, price:3300} ] },
+        choices:["暢便輕","衛適佳","嬌圓C","雙L益菌糖","黃晶魚油","夜允眠","允敏通","允媄莓"] },
+      { id:"earlyLate", title:"早晚安組合", rule:{type:"pickNFixed", n:4, fixedPrice:3200}, choices:["早安膠囊","晚安咀嚼錠"] },
+      { id:"goldOil", title:"金銀包組合", rule:{ type:"exactBundleFixed", fixedPrice:5000, items:[ {name:"優先盈", qty:3}, {name:"油澱雙切", qty:2} ] } },
+      { id:"gradFav", title:"畢業生最愛組合", rule:{ type:"exactBundleFixed", fixedPrice:6200, items:[ {name:"優先盈", qty:3}, {name:"雙L益菌糖", qty:2} ] } },
+      { id:"tea3", title:"茶包三入任選", rule:{ type:"pickNFixed", n: 3, fixedPrice: 1500 }, choices: ["好好安心茶","美美漂漂茶","滿滿活力茶"] }
+    ];
+    
+    /****************** 狀態 ******************/
+    const cart = [];
+    
+    function initialStateFromBundle(key){
+      const def = bundleDefs[key];
+      const o = {};
+      def.items.forEach(([name,qty])=>{
+        if(name === "MNT 蛋白粉"){ o[name] = { ...mntPreset[key] }; }
+        else{ o[name] = qty; }
+      });
+      return o;
     }
-
-    if(boxMain) boxMain.appendChild(row.cloneNode(true));
-    if(boxCare) boxCare.appendChild(row);
-  });
-
-  const syncMoney = (suf)=>{
-    const $sub = document.getElementById('subtotal'+suf);
-    const $dis = document.getElementById('discount'+suf);
-    const $tot = document.getElementById('grandTotal'+suf);
-    const $note= document.getElementById('bundleNotes'+suf);
-    if($sub) $sub.textContent = currency(subtotal);
-    if($dis) $dis.textContent = currency(0);
-    if($tot) $tot.textContent = currency(subtotal);
-    if($note) $note.textContent = bundleNote;
-  };
-  syncMoney('');
-  syncMoney('-care');
-
-  $$('[data-inc]').forEach(b=> b.addEventListener('click',()=>{ cart[+b.dataset.inc].qty++; renderCart(); }));
-  $$('[data-dec]').forEach(b=> b.addEventListener('click',()=>{ const i=+b.dataset.dec; cart[i].qty=Math.max(1, cart[i].qty-1); renderCart(); }));
-  $$('[data-del]').forEach(b=> b.addEventListener('click',()=>{ cart.splice(+b.dataset.del,1); renderCart(); }));
-}
-
-/****************** 操作：加入套組（主頁） ******************/
-function addBundle(key){
-  const def = bundleDefs[key];
-  const selections = Object.entries(state[key]).map(([name,qty])=>{
-    let q = 0;
-    if(name === 'MNT 蛋白粉' && qty && typeof qty === 'object'){ q = (+qty.can||0) + (+qty.bag||0); }
-    else{ q = +qty||0; }
-    return { name, qty:q, unitPrice: singlesByName[name]||0 };
-  }).filter(s=> s.qty>0);
-  const sub = selections.reduce((s,x)=> s + x.qty*x.unitPrice, 0);
-  const found = cart.find(c=> c.type==='bundle' && c.bundleKey===key);
-  if(found){ found.qty++; }
-  else{ cart.push({ type:'bundle', bundleKey:key, name:def.title, displayPrice: sub||def.displayPrice, minPrice:def.minPrice, selections, qty:1 }); }
-  renderCart();
-}
-
-/****************** 分頁切換 & 送出/清空 ******************/
-function wireActions(){
-  document.getElementById('clearCart').addEventListener('click', ()=>{ cart.length=0; renderCart(); });
-  document.getElementById('submitOrder').addEventListener('click', submitOrder);
-
-  document.getElementById('clearCart-care').addEventListener('click', ()=>{ cart.length=0; renderCart(); });
-  document.getElementById('submitOrder-care').addEventListener('click', submitOrder);
-
-  $$('[data-tab]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      $$('[data-tab]').forEach(b=> b.classList.remove('active'));
-      btn.classList.add('active');
-      const target = btn.dataset.tab;
-      const showMain = (target==='main');
-      document.getElementById('page-main').style.display = showMain? '' : 'none';
-      document.getElementById('page-main').setAttribute('aria-hidden', String(!showMain));
-      document.getElementById('page-care').style.display = showMain? 'none' : '';
-      document.getElementById('page-care').setAttribute('aria-hidden', String(showMain));
+    const state = {
+      classic: initialStateFromBundle('classic'),
+      super:   initialStateFromBundle('super'),
+      light:   initialStateFromBundle('light')
+    };
+    
+    /****************** 工具 ******************/
+    const $ = s=>document.querySelector(s);
+    const $$ = s=>[...document.querySelectorAll(s)];
+    function bundleSubtotal(key){
+      const o = state[key]; let sum = 0;
+      for(const [name,qty] of Object.entries(o)){
+        if(name === "MNT 蛋白粉"){
+          const unit = singlesByName[name]||0;
+          const can = (qty && qty.can)? +qty.can : 0;
+          const bag = (qty && qty.bag)? +qty.bag : 0;
+          sum += (can + bag) * unit;
+        }else{
+          sum += (singlesByName[name]||0) * (+qty||0);
+        }
+      }
+      return sum;
+    }
+    
+    function setBundleUi(key, subtotal){
+      const def = bundleDefs[key];
+      const eligible = subtotal >= def.minPrice;
+      // 改「可搭價」pill → 折後價
+      const pill = $(`#${key}Card .pill`);
+      if (pill) pill.textContent = "折後價";
+      // 折後價或破折號
+      const dealEl = document.getElementById(key+"Deal");
+      if (dealEl) dealEl.textContent = eligible ? currency(Math.max(0, subtotal - def.discount)) : "—";
+      // 商品小計
+      const subEl = document.getElementById(key+"Sub");
+      if (subEl) subEl.textContent = currency(subtotal);
+      // 提示
+      const hint = document.getElementById(key+"Hint");
+      if (hint) {
+        hint.textContent = eligible
+          ? `已達門檻（${currency(def.minPrice)}），可折 ${currency(def.discount)}，應付 ${currency(Math.max(0, subtotal - def.discount))}。`
+          : `未達門檻（需滿 ${currency(def.minPrice)}），無法加入整組。`;
+      }
+      // 控制按鈕
+      const btn = document.querySelector(`[data-add-bundle='${key}']`);
+      if (btn){
+        btn.disabled = !eligible;
+        btn.title = eligible ? `符合折扣 ${currency(def.discount)}` : `未達門檻 ${currency(def.minPrice)}`;
+      }
+    }
+    
+    /****************** Render：三個套組（主頁） ******************/
+    function renderBundle(key){
+      const def = bundleDefs[key];
+      const tbody = document.getElementById(key+"Body");
+      tbody.innerHTML = def.items.map(([name,qty])=>{
+        if(name === "MNT 蛋白粉"){
+          const cur = state[key][name] || { can:0, bag:0 };
+          const total = (+cur.can||0) + (+cur.bag||0);
+          return `<tr class="mnt-row">
+            <td>
+              <span class="mnt-name">${name}</span>
+              <div class="mnt-subline">
+                <label>罐 <input type="number" min="0" step="1" value="${cur.can}" data-mnt="${key}:can"></label>
+                <label>袋 <input type="number" min="0" step="1" value="${cur.bag}" data-mnt="${key}:bag"></label>
+              </div>
+            </td>
+            <td class="qty"><span class="mnt-qty-total" id="${key}-mnt-total">${total}</span></td>
+          </tr>`;
+        }
+        const val = state[key][name] ?? qty;
+        return `<tr>
+          <td>${name}</td>
+          <td class="qty"><input type="number" min="0" step="1" value="${val}" data-bq="${key}:${name}" style="width:58px;text-align:center;height:28px"></td>
+        </tr>`;
+      }).join("");
+    
+      // 首次更新 UI
+      setBundleUi(key, bundleSubtotal(key));
+    
+      // 綁一般品 input
+      $$(`input[data-bq^="${key}:"]`).forEach(i=>{
+        i.addEventListener("input",()=>{
+          const [k,name] = i.dataset.bq.split(":");
+          state[k][name] = Math.max(0, parseInt(i.value||"0")||0);
+          setBundleUi(k, bundleSubtotal(k));
+        });
+      });
+    
+      // 綁 MNT 罐/袋 input
+      $$(`input[data-mnt^='${key}:']`).forEach(i=>{
+        i.addEventListener('input',()=>{
+          const [k,which] = i.dataset.mnt.split(':');
+          const obj = state[k]["MNT 蛋白粉"] || {can:0, bag:0};
+          obj[which] = Math.max(0, parseInt(i.value||'0')||0);
+          state[k]["MNT 蛋白粉"] = obj;
+    
+          const total = (+obj.can||0) + (+obj.bag||0);
+          const totalEl = document.getElementById(`${k}-mnt-total`);
+          if(totalEl) totalEl.textContent = String(total);
+    
+          setBundleUi(k, bundleSubtotal(k));
+        });
+      });
+    }
+    
+    /****************** Render：主頁單品 ******************/
+    function renderSingles(){
+      const ul = document.getElementById("singlesList");
+      ul.innerHTML = "";
+      singles.forEach(s=>{
+        const li = document.createElement("li");
+        li.innerHTML = `<div class="meta"><span>${s.name}</span><span class="muted">${currency(s.unitPrice)}</span></div>
+                        <button class="btn" data-single="${s.id}">＋</button>`;
+        ul.appendChild(li);
+      });
+      $$("[data-single]").forEach(btn=> btn.addEventListener("click",()=>{
+        const s = [...singles, ...Object.values(careCatalog).flat()].find(x=>x.id===btn.dataset.single);
+        const found = cart.find(c=> c.type==='single' && c.itemId===s.id);
+        if(found){ found.qty++; }else{ cart.push({type:'single', itemId:s.id, name:s.name, unitPrice:s.unitPrice, qty:1}); }
+        renderCart();
+      }));
+    }
+    
+    /****************** Render：組合（主頁，分流到主容器 & 右欄） ******************/
+    function renderCombos(){
+      const mainWrap  = document.getElementById("combos");
+      const rightWrap = document.getElementById("combos-right");
+      mainWrap.innerHTML = "";
+      if (rightWrap) rightWrap.innerHTML = "";
+    
+      const RIGHT_COMBO_IDS = new Set(["earlyLate", "goldOil", "gradFav", "tea3"]);
+      const appendBlock = (el) => (container) => container && container.appendChild(el);
+    
+      combos.forEach(c=>{
+        const target = RIGHT_COMBO_IDS.has(c.id) ? rightWrap : mainWrap;
+    
+        if(c.rule.type === "mntCanBagTotalFixed"){
+          const id = c.id, n=c.rule.n;
+          const initCan = (c.rule.init && c.rule.init.can) || 0;
+          const initBag = (c.rule.init && c.rule.init.bag) || 0;
+    
+          const block = document.createElement("div");
+          block.className = "card combo-block";
+          block.innerHTML = `<div class="content">
+            <div class="row" style="margin-bottom:6px">
+              <b>${c.title}</b>
+              <span class="tag">${n} 入任選 / 固定價 ${currency(c.rule.fixedPrice)}</span>
+            </div>
+            <div class="row mntpack-row" style="margin:6px 0"><span>${c.product}（罐）</span><input type="number" min="0" value="${initCan}" data-mntpack="${id}:can" style="width:58px;text-align:center;height:28px"></div>
+            <div class="row mntpack-row" style="margin:6px 0"><span>${c.product}（袋）</span><input type="number" min="0" value="${initBag}" data-mntpack="${id}:bag" style="width:58px;text-align:center;height:28px"></div>
+            <div class="row" style="margin-top:6px">
+              <div class="muted">總計 <b id="cnt-${id}">${initCan+initBag}</b> / ${n}</div>
+              <button class="btn primary" data-add-mntpack="${id}" ${(initCan+initBag)===n? "":"disabled"}>加入組合包</button>
+            </div>
+          </div>`;
+          appendBlock(block)(target);
+    
+          const canInput = document.querySelector(`input[data-mntpack='${id}:can']`);
+          const bagInput = document.querySelector(`input[data-mntpack='${id}:bag']`);
+          const btn = document.querySelector(`[data-add-mntpack='${id}']`);
+          const cnt = document.getElementById(`cnt-${id}`);
+          const update=()=>{
+            const can=+canInput.value||0, bag=+bagInput.value||0, sum=can+bag;
+            cnt.textContent=String(sum); btn.disabled = sum!==n;
+          };
+          canInput.addEventListener('input',update);
+          bagInput.addEventListener('input',update);
+          btn.addEventListener('click', ()=>{
+            const can=+canInput.value||0, bag=+bagInput.value||0;
+            const selections=[]; if(can>0) selections.push({name:`${c.product}（罐）`, qty:can});
+            if(bag>0) selections.push({name:`${c.product}（袋）`, qty:bag});
+            cart.push({ type:'combo', name:c.title, rule:c.rule, selections, qty:1 });
+            canInput.value=c.rule.init?.can||0; bagInput.value=c.rule.init?.bag||0; update(); renderCart();
+          });
+          update(); return;
+        }
+    
+        if (c.rule.type === "pickTierFixed") {
+          const id = c.id;
+          const [tierA, tierB] = c.rule.tiers;
+          const block = document.createElement("div");
+          block.className = "card combo-block";
+          block.innerHTML = `
+            <div class="content">
+              <div class="row" style="margin-bottom:6px">
+                <b>${c.title}</b>
+                <span class="tag" id="tag-${id}">${tierA.n} 入任選 / 固定價 ${currency(tierA.price)}</span>
+              </div>
+              <div class="row" style="gap:16px; margin:6px 0 10px">
+                <label style="display:inline-flex;align-items:center;gap:6px">
+                  <input type="radio" name="tier-${id}" value="0" checked>
+                  <span>${tierA.n} 入 / ${currency(tierA.price)}</span>
+                </label>
+                <label style="display:inline-flex;align-items:center;gap:6px">
+                  <input type="radio" name="tier-${id}" value="1">
+                  <span>${tierB.n} 入 / ${currency(tierB.price)}</span>
+                </label>
+              </div>
+              <div id="qtywrap-${id}" style="display:flex; flex-direction:column; gap:10px; margin-bottom:8px">
+                ${c.choices.map(name=>{
+                  const unit = singlesByName[name]||0;
+                  const safeId = `${id}:${name}`;
+                  const showUnitPrice = id !== "mix8";
+                  return `
+                    <label style="display:flex; align-items:center; gap:8px; border:1px solid var(--border); border-radius:8px; padding:6px 8px; justify-content:space-between">
+                      <span>${name}${showUnitPrice ? ` <span class="muted">${currency(unit)}</span>` : ""}</span>
+                      <input type="number" min="0" value="0" data-qty="${safeId}" style="width:64px; text-align:center; height:28px">
+                    </label>
+                  `;
+                }).join("")}
+              </div>
+              <div class="row" style="margin-top:6px">
+                <div class="muted">已選 <b id="cnt-${id}">0</b> / <span id="need-${id}">${tierA.n}</span></div>
+                <button class="btn primary" data-add-mix8="${id}" disabled>加入組合包</button>
+              </div>
+            </div>`;
+          appendBlock(block)(target);
+    
+          const radios = [...document.querySelectorAll(`input[name='tier-${id}']`)];
+          const qtyInputs = [...document.querySelectorAll(`input[data-qty^='${id}:']`)];
+          const tagEl  = document.getElementById(`tag-${id}`);
+          const cntEl  = document.getElementById(`cnt-${id}`);
+          const needEl = document.getElementById(`need-${id}`);
+          const addBtn = document.querySelector(`[data-add-mix8='${id}']`);
+    
+          let currentTier = 0; // 0 -> 6入, 1 -> 3入
+          const need = () => currentTier === 0 ? tierA.n : tierB.n;
+          const price = () => currentTier === 0 ? tierA.price : tierB.price;
+          const sumQty = () => qtyInputs.reduce((s, i) => s + (+i.value || 0), 0);
+    
+          const update = () => {
+            const selected = sumQty();
+            cntEl.textContent = String(selected);
+            needEl.textContent = String(need());
+            addBtn.disabled = selected !== need();
+            tagEl.textContent = `${need()} 入任選 / 固定價 ${currency(price())}`;
+          };
+    
+          radios.forEach(r => r.addEventListener('change', () => {
+            currentTier = +r.value;
+            qtyInputs.forEach(i => i.value = "0");
+            update();
+          }));
+          qtyInputs.forEach(i => i.addEventListener('input', () => {
+            const v = Math.max(0, parseInt(i.value || "0", 10) || 0);
+            i.value = String(v);
+            update();
+          }));
+          addBtn.addEventListener('click', () => {
+            const selections = qtyInputs
+              .map(i => ({ name: i.dataset.qty.split(':')[1], qty: +i.value || 0 }))
+              .filter(s => s.qty > 0);
+            cart.push({
+              type: 'combo',
+              name: `${c.title}（${need()}入）`,
+              rule: { fixedPrice: price() },
+              selections,
+              qty: 1
+            });
+            qtyInputs.forEach(i => i.value = "0");
+            update();
+            renderCart();
+          });
+          update();
+          return;
+        }
+    
+        if(c.rule.type === "pickNFixed"){
+          const id = c.id;
+          const block = document.createElement("div");
+          block.className = "card combo-block";
+          block.innerHTML = `<div class="content">
+            <div class="row" style="margin-bottom:6px"><b>${c.title}</b><span class="tag">${c.rule.n} 入任選 / 固定價 ${currency(c.rule.fixedPrice)}</span></div>
+            ${c.choices.map(name=>{
+              const unit = singlesByName[name]||0;
+              return `<div class="row" style="margin:6px 0">
+                <span>${name} <span class="muted">${currency(unit)}</span></span>
+                <input type="number" min="0" value="0" data-choice="${id}:${name}" style="width:58px;text-align:center;height:28px">
+              </div>`;
+            }).join("")}
+            <div class="row" style="margin-top:6px">
+              <div class="muted">已選 <b id="cnt-${id}">0</b> / ${c.rule.n}</div>
+              <button class="btn primary" data-add-combo="${id}" disabled>加入組合包</button>
+            </div>
+          </div>`;
+          appendBlock(block)(target);
+    
+          const inputs = [...document.querySelectorAll(`input[data-choice^='${id}:']`)];
+          const btn = document.querySelector(`[data-add-combo='${id}']`);
+          const cnt = document.getElementById(`cnt-${id}`);
+          const update=()=>{
+            const sum = inputs.reduce((s,i)=> s + (+i.value||0), 0);
+            cnt.textContent = String(sum); btn.disabled = sum !== c.rule.n;
+          };
+          inputs.forEach(i=> i.addEventListener('input', update));
+          btn.addEventListener('click', ()=>{
+            const selections = inputs.map(i=>({name: i.dataset.choice.split(':')[1], qty: +i.value||0})).filter(x=>x.qty>0);
+            cart.push({ type:'combo', name:c.title, rule:c.rule, selections, qty:1 });
+            inputs.forEach(i=> i.value = 0); update(); renderCart();
+          });
+          update(); return;
+        }
+    
+        if (c.rule.type === "exactBundleFixed") {
+          const id=c.id;
+          const block=document.createElement("div"); block.className="card";
+          block.innerHTML=`<div class="content">
+            <div class="row" style="margin-bottom:6px"><b>${c.title}</b><span class="tag">固定配方 / 固定價 ${currency(c.rule.fixedPrice)}</span></div>
+            <ul class="list" style="margin-bottom:8px">
+              ${c.rule.items.map(it => `<li><div class="meta"><span>${it.name} × ${it.qty}</span><span class="muted">單價 ${currency(singlesByName[it.name]||0)}</span></div></li>`).join("")}
+            </ul>
+            <div class="row" style="margin-top:6px">
+              <label class="muted" style="display:inline-flex;align-items:center;gap:6px"><span>組數</span><input type="number" min="1" value="1" id="sets-${id}" style="width:64px;text-align:center;height:28px"></label>
+              <button class="btn primary" data-add-exact="${id}">加入組合包</button>
+            </div>
+          </div>`;
+          appendBlock(block)(target);
+    
+          const addBtn = document.querySelector(`[data-add-exact='${id}']`);
+          const setsInput = document.getElementById(`sets-${id}`);
+          addBtn.addEventListener("click", () => {
+            const sets = Math.max(1, parseInt(setsInput.value || "1", 10));
+            const selections = c.rule.items.map(it => ({ name: it.name, qty: it.qty }));
+            cart.push({ type:"combo", name:c.title, rule:{ fixedPrice:c.rule.fixedPrice }, selections, qty:sets });
+            setsInput.value = "1"; renderCart();
+          });
+          return;
+        }
+      });
+    }
+    
+    /****************** Render：第二頁商品清單 ******************/
+    function renderCareLists(){
+      const fill = (elId, items)=>{
+        const ul = document.getElementById(elId); ul.innerHTML = "";
+        items.forEach(s=>{
+          const li = document.createElement("li");
+          li.innerHTML = `<div class="meta"><span>${s.name}</span><span class="muted">${currency(s.unitPrice)}</span></div>
+                          <button class="btn" data-care="${s.id}">＋</button>`;
+          ul.appendChild(li);
+        });
+      };
+      fill("care-skin",   careCatalog.skin);
+      fill("care-drink",  careCatalog.drink);
+      fill("care-others", careCatalog.others);
+      fill("care-intimate", careCatalog.intimate);
+      fill("care-health", careCatalog.health);
+    
+      $$("[data-care]").forEach(btn=> btn.addEventListener("click", ()=>{
+        const s = Object.values(careCatalog).flat().find(x=> x.id===btn.dataset.care);
+        const found = cart.find(c=> c.type==='single' && c.itemId===s.id);
+        if(found){ found.qty++; }else{ cart.push({type:'single', itemId:s.id, name:s.name, unitPrice:s.unitPrice, qty:1}); }
+        renderCart();
+      }));
+    
+      // 保養三件組（固定 $4,980）
+      const addSkin3 = document.getElementById('add-skin3');
+      const setsSkin3 = document.getElementById('sets-skin3');
+      addSkin3.addEventListener('click', ()=>{
+        const sets = Math.max(1, parseInt(setsSkin3.value||"1",10));
+        const selections = [
+          { name:"胺基酸洗顏慕絲", qty:1 },
+          { name:"外泌體修護精華液", qty:1 },
+          { name:"皮脂膜修護乳霜", qty:1 },
+        ];
+        cart.push({ type:'combo', name:'保養三件組', rule:{ fixedPrice:4980 }, selections, qty:sets });
+        setsSkin3.value = "1";
+        renderCart();
+      });
+    }
+    
+    /****************** Render：購物車（同步到兩頁的顯示區） ******************/
+    function renderCart(){
+      const boxMain = document.getElementById('cartItems'); if(boxMain) boxMain.innerHTML = '';
+      const boxCare = document.getElementById('cartItems-care'); if(boxCare) boxCare.innerHTML = '';
+    
+      let gross = 0;           // 折扣前小計
+      let discountTotal = 0;   // 折扣總額（正數）
+    
+      cart.forEach((ci, idx)=>{
+        const rowHTMLSingle = (line)=>`
+          <div><div class='name'>單品｜${ci.name}</div><div class='muted'>單價 ${currency(ci.unitPrice)}</div></div>
+          <div class='right'>
+            <div class='qtyctl'>
+              <button class='btn' data-dec='${idx}'>−</button>
+              <span>${ci.qty}</span>
+              <button class='btn' data-inc='${idx}'>＋</button>
+              <button class='btn' data-del='${idx}' title='刪除'>✕</button>
+            </div>
+            <div class='price'>${currency(line)}</div>
+          </div>`;
+    
+        const rowHTMLBundle = (netLine,unitSub,unitDisc,sel)=>`
+          <div>
+            <div class='name'>套組｜${ci.name}</div>
+            ${sel?`<div class='muted'>${sel}</div>`:''}
+            <div class='muted'>每組小計 ${currency(unitSub)}；符合折扣 −${currency(unitDisc)}</div>
+          </div>
+          <div class='right'>
+            <div class='qtyctl'>
+              <button class='btn' data-dec='${idx}'>−</button>
+              <span>${ci.qty}</span>
+              <button class='btn' data-inc='${idx}'>＋</button>
+              <button class='btn' data-del='${idx}' title='刪除'>✕</button>
+            </div>
+            <div class='price'>${currency(netLine)}</div>
+          </div>`;
+    
+        const rowHTMLCombo = (line,seltext)=>`
+          <div>
+            <div class='name'>組合｜${ci.name}</div>
+            <div class='muted'>${seltext}</div>
+            <span class='tag'>固定價 ${currency(ci.rule.fixedPrice)} / 組</span>
+          </div>
+          <div class='right'>
+            <div class='qtyctl'>
+              <button class='btn' data-dec='${idx}'>−</button>
+              <span>${ci.qty}</span>
+              <button class='btn' data-inc='${idx}'>＋</button>
+              <button class='btn' data-del='${idx}' title='刪除'>✕</button>
+            </div>
+            <div class='price'>${currency(line)}</div>
+          </div>`;
+    
+        let row;
+        if(ci.type==='single'){
+          const unitLine = ci.unitPrice;
+          gross += unitLine * ci.qty;
+          const net = unitLine * ci.qty;
+          row = document.createElement('div'); row.className='cart-item'; row.innerHTML = rowHTMLSingle(net);
+        } else if(ci.type==='bundle'){
+          // 每組：unitSubtotal − unitDiscount（已在加入時確認門檻）
+          const unitSub = ci.unitSubtotal;
+          const unitDisc = ci.unitDiscount;
+          gross += unitSub * ci.qty;
+          discountTotal += unitDisc * ci.qty;
+          const net = (unitSub - unitDisc) * ci.qty;
+          const sel = ci.selections?.map(s=>`${s.name}×${s.qty}`).join('、') || '';
+          row = document.createElement('div'); row.className='cart-item'; row.innerHTML = rowHTMLBundle(net,unitSub,unitDisc,sel);
+        } else { // combo
+          const unit = ci.rule.fixedPrice;
+          gross += unit * ci.qty;
+          const net = unit * ci.qty;
+          const seltext = ci.selections.map(s=>`${s.name}×${s.qty}`).join('、');
+          row = document.createElement('div'); row.className='cart-item'; row.innerHTML = rowHTMLCombo(net,seltext);
+        }
+    
+        if(boxMain) boxMain.appendChild(row.cloneNode(true));
+        if(boxCare) boxCare.appendChild(row);
+      });
+    
+      const syncMoney = (suf)=>{
+        const $sub = document.getElementById('subtotal'+suf);
+        const $dis = document.getElementById('discount'+suf);
+        const $tot = document.getElementById('grandTotal'+suf);
+        const $note= document.getElementById('bundleNotes'+suf);
+        if($sub) $sub.textContent = currency(gross);
+        if($dis) $dis.textContent = '-' + currency(discountTotal);
+        if($tot) $tot.textContent = currency(Math.max(0, gross - discountTotal));
+        if($note) $note.textContent = discountTotal>0 ? '已套用套組滿額折扣。' : '';
+      };
+      syncMoney('');
+      syncMoney('-care');
+    
+      $$('[data-inc]').forEach(b=> b.addEventListener('click',()=>{ cart[+b.dataset.inc].qty++; renderCart(); }));
+      $$('[data-dec]').forEach(b=> b.addEventListener('click',()=>{ const i=+b.dataset.dec; cart[i].qty=Math.max(1, cart[i].qty-1); renderCart(); }));
+      $$('[data-del]').forEach(b=> b.addEventListener('click',()=>{ cart.splice(+b.dataset.del,1); renderCart(); }));
+    }
+    
+    /****************** 操作：加入套組（主頁） ******************/
+    function addBundle(key){
+      const def = bundleDefs[key];
+      const selections = Object.entries(state[key]).map(([name,qty])=>{
+        let q = 0;
+        if(name === 'MNT 蛋白粉' && qty && typeof qty === 'object'){ q = (+qty.can||0) + (+qty.bag||0); }
+        else{ q = +qty||0; }
+        return { name, qty:q, unitPrice: singlesByName[name]||0 };
+      }).filter(s=> s.qty>0);
+      const sub = selections.reduce((s,x)=> s + x.qty*x.unitPrice, 0);
+    
+      // 未達門檻不可加入
+      if(sub < def.minPrice){
+        alert(`「${def.title}」未達門檻（需滿 ${currency(def.minPrice)}），無法加入整組。`);
+        return;
+      }
+    
+      // 加入購物車（每次加入視為獨立一筆，避免不同組合被合併）
+      cart.push({
+        type:'bundle',
+        bundleKey:key,
+        name:def.title,
+        unitSubtotal: sub,
+        unitDiscount: def.discount,
+        selections,
+        qty:1
+      });
       renderCart();
-    });
-  });
-}
-function submitOrder(){
-  if(cart.length===0){ alert('購物車是空的'); return; }
-  const payload = { orderNo: document.getElementById('orderNo').textContent, items: cart };
-  console.log('送出訂單：', payload); alert('已送出（示範：僅 console.log）');
-}
-
-/****************** 啟動 ******************/
-function init(){
-  const d = new Date();
-  document.getElementById('today').textContent = d.toLocaleDateString('zh-TW');
-  document.getElementById('orderNo').textContent = 'DR-' + d.getFullYear().toString().slice(2) + (d.getMonth()+1+'').padStart(2,'0') + d.getDate().toString().padStart(2,'0') + '-' + Math.floor(Math.random()*900+100);
-
-  ['classic','super','light'].forEach(renderBundle);
-  $$('[data-add-bundle]').forEach(btn=> btn.addEventListener('click',()=> addBundle(btn.dataset.addBundle)));
-
-  renderSingles();
-  renderCombos();
-  renderCareLists();
-  renderCart();
-  wireActions();
-}
-document.addEventListener('DOMContentLoaded', init);
-</script>
+    }
+    
+    /****************** 分頁切換 & 送出/清空 ******************/
+    function wireActions(){
+      document.getElementById('clearCart').addEventListener('click', ()=>{ cart.length=0; renderCart(); });
+      document.getElementById('submitOrder').addEventListener('click', submitOrder);
+    
+      document.getElementById('clearCart-care').addEventListener('click', ()=>{ cart.length=0; renderCart(); });
+      document.getElementById('submitOrder-care').addEventListener('click', submitOrder);
+    
+      $$('[data-tab]').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          $$('[data-tab]').forEach(b=> b.classList.remove('active'));
+          btn.classList.add('active');
+          const target = btn.dataset.tab;
+          const showMain = (target==='main');
+          document.getElementById('page-main').style.display = showMain? '' : 'none';
+          document.getElementById('page-main').setAttribute('aria-hidden', String(!showMain));
+          document.getElementById('page-care').style.display = showMain? 'none' : '';
+          document.getElementById('page-care').setAttribute('aria-hidden', String(showMain));
+          renderCart();
+        });
+      });
+    }
+    function submitOrder(){
+      if(cart.length===0){ alert('購物車是空的'); return; }
+      const payload = { orderNo: document.getElementById('orderNo').textContent, items: cart };
+      console.log('送出訂單：', payload); alert('已送出（示範：僅 console.log）');
+    }
+    
+    /****************** 啟動 ******************/
+    function init(){
+      const d = new Date();
+      document.getElementById('today').textContent = d.toLocaleDateString('zh-TW');
+      document.getElementById('orderNo').textContent = 'DR-' + d.getFullYear().toString().slice(2) + (d.getMonth()+1+'').padStart(2,'0') + d.getDate().toString().padStart(2,'0') + '-' + Math.floor(Math.random()*900+100);
+    
+      ['classic','super','light'].forEach(renderBundle);
+      $$('[data-add-bundle]').forEach(btn=> btn.addEventListener('click',()=> addBundle(btn.dataset.addBundle)));
+    
+      renderSingles();
+      renderCombos();
+      renderCareLists();
+      renderCart();
+      wireActions();
+    }
+    document.addEventListener('DOMContentLoaded', init);
+    </script>
+    
 </body>
 </html>
