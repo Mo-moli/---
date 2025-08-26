@@ -282,6 +282,11 @@
   color: #475569; /* 冷灰藍 */
 }
 
+/* === 購物車分隔線改黑色 === */
+.cart-item{ border-bottom:1px dashed #000000 !important; }
+.cart .subtotal{ border-top:1px dashed #000000 !important; }
+.card.cart hr{ border-top:1px solid #ff0000 !important; }
+
 
 </style>
 </head>
@@ -315,11 +320,10 @@
             <tbody id="classicBody"></tbody>
           </table>
           <div class="content stack" style="padding:8px 0 0">
-            <div class="row"><span>商品小計</span><b class="price" id="classicSub"></b></div>
             <div class="row"><span class="pill">可搭價</span><b class="price" id="classicDeal"></b></div>
-            <div class="muted">初 / 複診可搭 $15,000</div>
+            <div class="muted">初 / 複診可搭</div>
             <div class="muted" id="classicHint"></div>
-            <div class="row"><button class="btn primary" data-add-bundle="classic">加入整組</button></div>
+            <div class="row"><button class="btn primary" data-add-bundle="classic">加入購物車</button></div>
           </div>
         </div>
       </section>
@@ -332,11 +336,10 @@
             <tbody id="superBody"></tbody>
           </table>
           <div class="content stack" style="padding:8px 0 0">
-            <div class="row"><span>商品小計</span><b class="price" id="superSub"></b></div>
             <div class="row"><span class="pill">可搭價</span><b class="price" id="superDeal"></b></div>
-            <div class="muted">初 / 複診可搭 $30,000</div>
+            <div class="muted">初 / 複診可搭</div>
             <div class="muted" id="superHint"></div>
-            <div class="row"><button class="btn primary" data-add-bundle="super">加入整組</button></div>
+            <div class="row"><button class="btn primary" data-add-bundle="super">加入購物車</button></div>
           </div>
         </div>
       </section>
@@ -349,11 +352,10 @@
             <tbody id="lightBody"></tbody>
           </table>
           <div class="content stack" style="padding:8px 0 0">
-            <div class="row"><span>商品小計</span><b class="price" id="lightSub"></b></div>
             <div class="row"><span class="pill">可搭價</span><b class="price" id="lightDeal"></b></div>
-            <div class="muted">只限核診 $9,800</div>
+            <div class="muted">只限複診</div>
             <div class="muted" id="lightHint"></div>
-            <div class="row"><button class="btn primary" data-add-bundle="light">加入整組</button></div>
+            <div class="row"><button class="btn primary" data-add-bundle="light">加入購物車</button></div>
           </div>
         </div>
       </section>
@@ -438,7 +440,7 @@
                 <span>組數</span>
                 <input type="number" min="1" value="1" id="sets-skin3" style="width:64px;text-align:center;height:28px">
               </label>
-              <button class="btn primary" id="add-skin3">加入組合包</button>
+              <button class="btn primary" id="add-skin3">加入購物車</button>
             </div>
           </div>
         </section>
@@ -605,7 +607,7 @@
       const eligible = subtotal >= def.minPrice;
       // 改「可搭價」pill → 折後價
       const pill = $(`#${key}Card .pill`);
-      if (pill) pill.textContent = "折後價";
+      if (pill) pill.textContent = "套組優惠";
       // 折後價或破折號
       const dealEl = document.getElementById(key+"Deal");
       if (dealEl) dealEl.textContent = eligible ? currency(Math.max(0, subtotal - def.discount)) : "—";
@@ -616,7 +618,7 @@
       const hint = document.getElementById(key+"Hint");
       if (hint) {
         hint.textContent = eligible
-          ? `已達門檻（${currency(def.minPrice)}），可折 ${currency(def.discount)}，應付 ${currency(Math.max(0, subtotal - def.discount))}。`
+          ? `可折 ${currency(def.discount)}，應付 ${currency(Math.max(0, subtotal - def.discount))}。`
           : `未達門檻（需滿 ${currency(def.minPrice)}），無法加入整組。`;
       }
       // 控制按鈕
@@ -628,61 +630,73 @@
     }
     
     /****************** Render：三個套組（主頁） ******************/
-    function renderBundle(key){
-      const def = bundleDefs[key];
-      const tbody = document.getElementById(key+"Body");
-      tbody.innerHTML = def.items.map(([name,qty])=>{
-        if(name === "MNT 蛋白粉"){
-          const cur = state[key][name] || { can:0, bag:0 };
-          const total = (+cur.can||0) + (+cur.bag||0);
-          return `<tr class="mnt-row">
-            <td>
-              <span class="mnt-name">${name}</span>
-              <div class="mnt-subline">
-                <label>罐 <input type="number" min="0" step="1" value="${cur.can}" data-mnt="${key}:can"></label>
-                <label>袋 <input type="number" min="0" step="1" value="${cur.bag}" data-mnt="${key}:bag"></label>
-              </div>
-            </td>
-            <td class="qty"><span class="mnt-qty-total" id="${key}-mnt-total">${total}</span></td>
-          </tr>`;
-        }
-        const val = state[key][name] ?? qty;
-        return `<tr>
-          <td>${name}</td>
-          <td class="qty"><input type="number" min="0" step="1" value="${val}" data-bq="${key}:${name}" style="width:58px;text-align:center;height:28px"></td>
-        </tr>`;
-      }).join("");
-    
-      // 首次更新 UI
-      setBundleUi(key, bundleSubtotal(key));
-    
-      // 綁一般品 input
-      $$(`input[data-bq^="${key}:"]`).forEach(i=>{
-        i.addEventListener("input",()=>{
-          const [k,name] = i.dataset.bq.split(":");
-          state[k][name] = Math.max(0, parseInt(i.value||"0")||0);
-          setBundleUi(k, bundleSubtotal(k));
-        });
-      });
-    
-      // 綁 MNT 罐/袋 input
-      $$(`input[data-mnt^='${key}:']`).forEach(i=>{
-        i.addEventListener('input',()=>{
-          const [k,which] = i.dataset.mnt.split(':');
-          const obj = state[k]["MNT 蛋白粉"] || {can:0, bag:0};
-          obj[which] = Math.max(0, parseInt(i.value||'0')||0);
-          state[k]["MNT 蛋白粉"] = obj;
-    
-          const total = (+obj.can||0) + (+obj.bag||0);
-          const totalEl = document.getElementById(`${k}-mnt-total`);
-          if(totalEl) totalEl.textContent = String(total);
-    
-          setBundleUi(k, bundleSubtotal(k));
-        });
-      });
+function renderBundle(key){
+  const def = bundleDefs[key];
+  const tbody = document.getElementById(key+"Body");
+  tbody.innerHTML = def.items.map(([name,qty])=>{
+    // 1) MNT 罐/袋：維持原本可輸入
+    if(name === "MNT 蛋白粉"){
+      const cur = state[key][name] || { can:0, bag:0 };
+      const total = (+cur.can||0) + (+cur.bag||0);
+      return `<tr class="mnt-row">
+        <td>
+          <span class="mnt-name">${name}</span>
+          <div class="mnt-subline">
+            <label>罐 <input type="number" min="0" step="1" value="${cur.can}" data-mnt="${key}:can"></label>
+            <label>袋 <input type="number" min="0" step="1" value="${cur.bag}" data-mnt="${key}:bag"></label>
+          </div>
+        </td>
+        <td class="qty"><span class="mnt-qty-total" id="${key}-mnt-total">${total}</span></td>
+      </tr>`;
     }
-    
 
+    // 2) 4+2R 追蹤：固定數量，不可更改（沒有輸入框）
+    if(name === "4+2R 追蹤"){
+      // 以套組定義為準，強制寫回 state（避免被外部改動）
+      const fixed = qty;
+      state[key][name] = fixed;
+      return `<tr class="fixed-row">
+        <td>${name} <span class="tag">固定</span></td>
+        <td class="qty"><span class="muted">${fixed}</span></td>
+      </tr>`;
+    }
+
+    // 3) 其他一般品：可輸入
+    const val = state[key][name] ?? qty;
+    return `<tr>
+      <td>${name}</td>
+      <td class="qty"><input type="number" min="0" step="1" value="${val}" data-bq="${key}:${name}" style="width:58px;text-align:center;height:28px"></td>
+    </tr>`;
+  }).join("");
+
+  // 首次更新 UI
+  setBundleUi(key, bundleSubtotal(key));
+
+  // 綁一般品 input（不會包含「4+2R 追蹤」，因為沒有 input）
+  $$(`input[data-bq^="${key}:"]`).forEach(i=>{
+    i.addEventListener("input",()=>{
+      const [k,name] = i.dataset.bq.split(":");
+      state[k][name] = Math.max(0, parseInt(i.value||"0")||0);
+      setBundleUi(k, bundleSubtotal(k));
+    });
+  });
+
+  // 綁 MNT 罐/袋 input
+  $$(`input[data-mnt^='${key}:']`).forEach(i=>{
+    i.addEventListener('input',()=>{
+      const [k,which] = i.dataset.mnt.split(':');
+      const obj = state[k]["MNT 蛋白粉"] || {can:0, bag:0};
+      obj[which] = Math.max(0, parseInt(i.value||'0')||0);
+      state[k]["MNT 蛋白粉"] = obj;
+
+      const total = (+obj.can||0) + (+obj.bag||0);
+      const totalEl = document.getElementById(`${k}-mnt-total`);
+      if(totalEl) totalEl.textContent = String(total);
+
+      setBundleUi(k, bundleSubtotal(k));
+    });
+  });
+}
 
     /****************** Render：主頁單品（可調整數量 + 同步更新購物車） ******************/
 function renderSingles(){
@@ -706,7 +720,7 @@ function renderSingles(){
   // 底部：更新購物車（把畫面上的數量「同步覆寫」到購物車）
   const addRow = document.createElement("div");
   addRow.style = "margin-top:10px; text-align:right";
-  addRow.innerHTML = `<button class="btn primary" id="syncSingles">更新購物車（單品）</button>`;
+  addRow.innerHTML = `<button class="btn primary" id="syncSingles">加入購物車</button>`;
   ul.parentElement.appendChild(addRow);
 
   // 綁定事件：同步主頁單品到購物車（不清空輸入框）
@@ -771,7 +785,7 @@ function renderSingles(){
             <div class="row mntpack-row" style="margin:6px 0"><span>${c.product}（袋）</span><input type="number" min="0" value="${initBag}" data-mntpack="${id}:bag" style="width:58px;text-align:center;height:28px"></div>
             <div class="row" style="margin-top:6px">
               <div class="muted">總計 <b id="cnt-${id}">${initCan+initBag}</b> / ${n}</div>
-              <button class="btn primary" data-add-mntpack="${id}" ${(initCan+initBag)===n? "":"disabled"}>加入組合包</button>
+              <button class="btn primary" data-add-mntpack="${id}" ${(initCan+initBag)===n? "":"disabled"}>加入購物車</button>
             </div>
           </div>`;
           appendBlock(block)(target);
@@ -832,7 +846,7 @@ function renderSingles(){
               </div>
               <div class="row" style="margin-top:6px">
                 <div class="muted">已選 <b id="cnt-${id}">0</b> / <span id="need-${id}">${tierA.n}</span></div>
-                <button class="btn primary" data-add-mix8="${id}" disabled>加入組合包</button>
+                <button class="btn primary" data-add-mix8="${id}" disabled>加入購物車</button>
               </div>
             </div>`;
           appendBlock(block)(target);
@@ -901,7 +915,7 @@ function renderSingles(){
             }).join("")}
             <div class="row" style="margin-top:6px">
               <div class="muted">已選 <b id="cnt-${id}">0</b> / ${c.rule.n}</div>
-              <button class="btn primary" data-add-combo="${id}" disabled>加入組合包</button>
+              <button class="btn primary" data-add-combo="${id}" disabled>加入購物車</button>
             </div>
           </div>`;
           appendBlock(block)(target);
@@ -932,7 +946,7 @@ function renderSingles(){
             </ul>
             <div class="row" style="margin-top:6px">
               <label class="muted" style="display:inline-flex;align-items:center;gap:6px"><span>組數</span><input type="number" min="1" value="1" id="sets-${id}" style="width:64px;text-align:center;height:28px"></label>
-              <button class="btn primary" data-add-exact="${id}">加入組合包</button>
+              <button class="btn primary" data-add-exact="${id}">加入購物車</button>
             </div>
           </div>`;
           appendBlock(block)(target);
@@ -972,7 +986,7 @@ function renderCareLists(){
     // 每個區塊底部都加一排動作欄（可只留在第一個區塊；這裡每個區塊都放一顆也OK）
     const action = document.createElement("div");
     action.style = "margin-top:10px; text-align:right";
-    action.innerHTML = `<button class="btn primary" data-sync-care="true">更新購物車</button>`;
+    action.innerHTML = `<button class="btn primary" data-sync-care="true">加入購物車</button>`;
     ul.parentElement.appendChild(action);
   };
 
@@ -1133,34 +1147,50 @@ function renderCareLists(){
     }
     
     /****************** 操作：加入套組（主頁） ******************/
-    function addBundle(key){
-      const def = bundleDefs[key];
-      const selections = Object.entries(state[key]).map(([name,qty])=>{
-        let q = 0;
-        if(name === 'MNT 蛋白粉' && qty && typeof qty === 'object'){ q = (+qty.can||0) + (+qty.bag||0); }
-        else{ q = +qty||0; }
-        return { name, qty:q, unitPrice: singlesByName[name]||0 };
-      }).filter(s=> s.qty>0);
-      const sub = selections.reduce((s,x)=> s + x.qty*x.unitPrice, 0);
-    
-      // 未達門檻不可加入
-      if(sub < def.minPrice){
-        alert(`「${def.title}」未達門檻（需滿 ${currency(def.minPrice)}），無法加入整組。`);
-        return;
-      }
-    
-      // 加入購物車（每次加入視為獨立一筆，避免不同組合被合併）
-      cart.push({
-        type:'bundle',
-        bundleKey:key,
-        name:def.title,
-        unitSubtotal: sub,
-        unitDiscount: def.discount,
-        selections,
-        qty:1
-      });
-      renderCart();
+   /****************** 操作：加入套組（主頁） ******************/
+function addBundle(key){
+  const def = bundleDefs[key];
+
+  // 1) 先把 state 轉成 selections
+  const selections = [];
+  Object.entries(state[key]).forEach(([name, qty]) => {
+    if (name === 'MNT 蛋白粉' && qty && typeof qty === 'object') {
+      const unitPrice = singlesByName[name] || 0;
+      const can = Math.max(0, +qty.can || 0);
+      const bag = Math.max(0, +qty.bag || 0);
+
+      // ⭐ 關鍵：把「罐」與「袋」拆成兩個品項
+      if (can > 0) selections.push({ name: 'MNT 蛋白粉（罐）', qty: can, unitPrice });
+      if (bag > 0) selections.push({ name: 'MNT 蛋白粉（袋）', qty: bag, unitPrice });
+    } else {
+      const q = Math.max(0, +qty || 0);
+      if (q > 0) selections.push({ name, qty: q, unitPrice: singlesByName[name] || 0 });
     }
+  });
+
+  // 2) 計算小計（注意：MNT 已經拆成兩項，所以直接加總 selections 即可）
+  const sub = selections.reduce((s, x) => s + x.qty * x.unitPrice, 0);
+
+  // 3) 未達門檻不可加入
+  if (sub < def.minPrice){
+    alert(`「${def.title}」未達門檻（需滿 $${def.minPrice.toLocaleString()}），無法加入整組。`);
+    return;
+  }
+
+  // 4) 加入購物車（每次加入獨立一筆）
+  cart.push({
+    type: 'bundle',
+    bundleKey: key,
+    name: def.title,
+    unitSubtotal: sub,
+    unitDiscount: def.discount,
+    selections,    // ⭐ 這裡的 selections 會帶著「罐／袋」分開
+    qty: 1
+  });
+
+  renderCart();
+}
+
     
     /****************** 分頁切換 & 送出/清空 ******************/
     function wireActions(){
