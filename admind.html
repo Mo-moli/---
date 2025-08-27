@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>訂單管理後台</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  body{font-family:"Noto Sans TC",system-ui; margin:0; background:#f7f7f9; color:#1b2430}
+  .wrap{max-width:1100px;margin:24px auto;padding:0 12px}
+  .card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden}
+  h1{font-size:22px;margin:0 0 12px}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:10px;border-bottom:1px solid #e5e7eb;text-align:left;font-size:14px;vertical-align:top}
+  .muted{color:#6b7280}
+  .btn{appearance:none;border:1px solid #4b5569;background:#4b5569;color:#fff;border-radius:8px;padding:6px 10px;cursor:pointer}
+  .login{max-width:420px;margin:48px auto}
+  details{background:#fafafa;border:1px solid #eee;border-radius:8px;padding:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>訂單管理後台</h1>
+
+  <!-- 登入 -->
+  <div id="login" class="card login" style="padding:16px">
+    <form id="loginForm" class="stack" style="display:flex;flex-direction:column;gap:10px">
+      <label>管理員 Email<br><input id="adminEmail" type="email" required style="width:100%;height:36px;padding:6px 10px;border:1px solid #d1d5db;border-radius:8px"></label>
+      <label>密碼<br><input id="adminPass" type="password" required style="width:100%;height:36px;padding:6px 10px;border:1px solid #d1d5db;border-radius:8px"></label>
+      <button class="btn" type="submit">登入</button>
+      <div class="muted">登入後可檢視訂單（需要在 Firestore 規則中列入白名單）。</div>
+    </form>
+  </div>
+
+  <!-- 訂單列表 -->
+  <div id="ordersBox" class="card" style="display:none">
+    <div style="padding:12px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center">
+      <strong>訂單列表</strong>
+      <button id="logout" class="btn" type="button">登出</button>
+    </div>
+    <div style="padding:0">
+      <table>
+        <thead>
+          <tr>
+            <th>建立時間</th>
+            <th>訂單號</th>
+            <th>顧客</th>
+            <th>總計</th>
+            <th>內容</th>
+          </tr>
+        </thead>
+        <tbody id="ordersTbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+  import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+  import { getFirestore, collection, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyByf-Dt9Yiqxx-iKEHdlSHOaOLSDPB89qY",
+  authDomain: "plus2r-taichung.firebaseapp.com",
+  projectId: "plus2r-taichung",
+  storageBucket: "plus2r-taichung.firebasestorage.app",
+  messagingSenderId: "163462804695",
+  appId: "1:163462804695:web:6c915b616d02d167f7ec92",
+  measurementId: "G-0L97P1Y9HZ"
+};
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db   = getFirestore(app);
+
+  const $ = s => document.querySelector(s);
+  const tbody = $("#ordersTbody");
+  const loginBox = $("#login");
+  const ordersBox = $("#ordersBox");
+
+  $("#loginForm").addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    const email = $("#adminEmail").value.trim();
+    const pass  = $("#adminPass").value;
+    try{
+      await signInWithEmailAndPassword(auth, email, pass);
+    }catch(err){
+      alert("登入失敗：" + (err?.message||err));
+    }
+  });
+
+  $("#logout").addEventListener("click", ()=> signOut(auth));
+
+  onAuthStateChanged(auth, (user)=>{
+    if(user){
+      loginBox.style.display = "none";
+      ordersBox.style.display = "";
+
+      // 即時監聽訂單
+      const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
+      onSnapshot(q, (snap)=>{
+        tbody.innerHTML = "";
+        snap.forEach(doc=>{
+          const o = doc.data();
+          const t = o.createdAt?.toDate?.() || new Date(0);
+          const tr = document.createElement("tr");
+          const cartHtml = (o.items||[]).map(it=>{
+            const title =
+              it.type === 'single' ? `單品｜${it.name}`
+              : it.type === 'bundle' ? `套組｜${it.name}`
+              : `組合｜${it.name}`;
+            const sel  = (it.selections||[]).map(s=>`${s.name}×${s.qty}`).join('、');
+            const line = it.type==='single' ? `${it.qty} × $${(it.unitPrice||0).toLocaleString()}`
+                      : it.type==='bundle' ? `每組折前 $${(it.unitSubtotal||0).toLocaleString()} - 折扣 $${(it.unitDiscount||0).toLocaleString()} × ${it.qty}`
+                      : `組合價 $${(it.rule?.fixedPrice||0).toLocaleString()} × ${it.qty}`;
+            return `<li><strong>${title}</strong> ${sel?`<span class="muted">（${sel}）</span>`:''}<br><span class="muted">${line}</span></li>`;
+          }).join("");
+
+          tr.innerHTML = `
+            <td>${t.toLocaleString('zh-TW')}</td>
+            <td>${o.orderNo || ''}</td>
+            <td>
+              ${o.customer?.name || ''}<br>
+              <span class="muted">${o.customer?.phone || ''}</span><br>
+              <span class="muted">${o.customer?.email || ''}</span>
+            </td>
+            <td>
+              <div>小計：${o.totals?.subtotal || ''}</div>
+              <div>折扣：${o.totals?.discount || ''}</div>
+              <div><strong>總計：${o.totals?.grand || ''}</strong></div>
+            </td>
+            <td>
+              <details>
+                <summary>查看</summary>
+                <ul style="margin:8px 0 0 16px; padding:0">${cartHtml}</ul>
+              </details>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      });
+
+    }else{
+      ordersBox.style.display = "none";
+      loginBox.style.display  = "";
+      tbody.innerHTML = "";
+    }
+  });
+</script>
+</body>
+</html>
