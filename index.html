@@ -289,8 +289,73 @@
 
 
 </style>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+  import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
+  import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+  // （可選）若你想要 GA 事件才需要 analytics
+  // import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-analytics.js";
+
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyByf-Dt9Yiqxx-iKEHdlSHOaOLSDPB89qY",
+  authDomain: "plus2r-taichung.firebaseapp.com",
+  projectId: "plus2r-taichung",
+  storageBucket: "plus2r-taichung.firebasestorage.app",
+  messagingSenderId: "163462804695",
+  appId: "1:163462804695:web:6c915b616d02d167f7ec92",
+  measurementId: "G-0L97P1Y9HZ"
+};
+
+  const app = initializeApp(firebaseConfig);
+  // const analytics = getAnalytics(app); // 可選
+
+  // ✨ 關鍵：把需要用到的 API 掛到全域，供後面的模組使用
+  window.__fb = {
+    auth: getAuth(app),
+    db: getFirestore(app),
+    addDoc,
+    collection,
+    serverTimestamp,
+    signInAnonymously,
+    onAuthStateChanged,
+  };
+</script>
+
 </head>
 <body>
+
+  <!-- ===== 顧客資料 Gate ===== -->
+<div id="customer-gate" style="max-width:520px;margin:24px auto;padding:16px;background:#fff;border:1px solid #e5e7eb;border-radius:10px">
+  <h2 style="margin:0 0 12px">先填寫基本資料</h2>
+  <p class="muted" style="margin-top:0">完成後即可進入勾選購物頁面。</p>
+
+  <form id="customer-form" class="stack" style="gap:10px">
+    <label class="stack">
+      <span>姓名</span>
+      <input id="cust-name" type="text" required placeholder="王曉明" style="height:36px;padding:6px 10px;border:1px solid #d1d5db;border-radius:8px">
+    </label>
+    <label class="stack">
+      <span>電話</span>
+      <input id="cust-phone" type="tel" required placeholder="0906xxxxxx" pattern="^[0-9+\-() ]{8,}$" style="height:36px;padding:6px 10px;border:1px solid #d1d5db;border-radius:8px">
+    </label>
+    <label class="stack">
+      <span>Email</span>
+      <input id="cust-email" type="email" required placeholder="name@example.com" style="height:36px;padding:6px 10px;border:1px solid #d1d5db;border-radius:8px">
+    </label>
+
+    <label style="display:flex;gap:8px;align-items:center;margin-top:4px">
+      <input id="agree" type="checkbox" required>
+      <span class="muted">我同意診所使用本資料處理訂單</span>
+    </label>
+
+    <div class="row" style="justify-content:flex-end;margin-top:6px">
+      <button class="btn primary" type="submit">開始選購</button>
+    </div>
+  </form>
+</div>
+<div id="shop-root" style="display:none">
   <!-- 深色抬頭區 -->
   <div class="topbar">
     <div class="title">醫&nbsp;&nbsp;師&nbsp;&nbsp;勾&nbsp;&nbsp;選&nbsp;&nbsp;單</div>
@@ -467,7 +532,7 @@
 
     </div>
   </section>
-
+</div>
   <script>
     /****************** 資料 ******************/
     const currency = n => "$" + (n||0).toLocaleString();
@@ -1236,6 +1301,84 @@ function addBundle(key){
       wireActions();
     }
     document.addEventListener('DOMContentLoaded', init);
+
+    
+    </script>
+    <script type="module">
+      const { auth, db, addDoc, collection, serverTimestamp, signInAnonymously, onAuthStateChanged } = window.__fb;
+    
+      // 1) 先匿名登入（讓 Firestore create 訂單有身分）
+      signInAnonymously(auth).catch(console.error);
+    
+      // 2) Gate：顧客表單
+      const gateEl = document.getElementById('customer-gate');
+      const shopEl = document.getElementById('shop-root');
+    
+      // 若本地已有顧客資料（例如回購），可直接放行
+      const saved = JSON.parse(localStorage.getItem('customerInfo') || 'null');
+      if (saved?.name && saved?.phone && saved?.email) {
+        gateEl.style.display = 'none';
+        shopEl.style.display = '';
+      }
+    
+      document.getElementById('customer-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const info = {
+          name:  document.getElementById('cust-name').value.trim(),
+          phone: document.getElementById('cust-phone').value.trim(),
+          email: document.getElementById('cust-email').value.trim()
+        };
+        if (!info.name || !info.phone || !info.email) return;
+    
+        localStorage.setItem('customerInfo', JSON.stringify(info));
+        gateEl.style.display = 'none';
+        shopEl.style.display = '';
+      });
+    
+      // 3) 覆寫你原本的 submitOrder：送單 → Firestore
+      //    （保留你原本 console.log 與 alert 行為）
+      const _origSubmitOrder = window.submitOrder;
+      window.submitOrder = async function () {
+        if (cart.length === 0) { alert('購物車是空的'); return; }
+    
+        const info = JSON.parse(localStorage.getItem('customerInfo') || 'null');
+        if (!info?.name || !info?.phone || !info?.email) {
+          alert('請先填寫顧客基本資料');
+          gateEl.style.display = '';  // 拉回 Gate
+          shopEl.style.display = 'none';
+          return;
+        }
+    
+        const orderNo = document.getElementById('orderNo').textContent;
+        const payload = {
+          orderNo,
+          customer: info,                     // {name, phone, email}
+          items: cart,                        // 你的 cart 陣列
+          totals: {
+            subtotal: document.getElementById('subtotal').textContent,
+            discount: document.getElementById('discount').textContent,
+            grand:    document.getElementById('grandTotal').textContent
+          },
+          createdAt: serverTimestamp(),
+          from: "github-pages/index.html"     // 來源標註（可選）
+        };
+    
+        try {
+          await addDoc(collection(db, 'orders'), payload);
+          console.log('送出訂單：', payload);
+          alert('已送出！我們已收到您的訂單。');
+    
+          // 清空購物車（保留顧客資料以便回購）
+          cart.length = 0;
+          renderCart();
+        } catch (err) {
+          console.error(err);
+          alert('送單失敗，請稍後再試');
+        }
+    
+        // 若你還想執行舊的 console.log/alert，可保留
+        if (typeof _origSubmitOrder === 'function') _origSubmitOrder();
+      };
     </script>
     
 </body>
