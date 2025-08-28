@@ -293,16 +293,18 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
   import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
-  import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+  import {
+    getFirestore, collection, doc, writeBatch, serverTimestamp,addDoc
+  } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
   // （可選）若你想要 GA 事件才需要 analytics
   // import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-analytics.js";
 
   // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
+  const firebaseConfig = {
   apiKey: "AIzaSyByf-Dt9Yiqxx-iKEHdlSHOaOLSDPB89qY",
   authDomain: "plus2r-taichung.firebaseapp.com",
   projectId: "plus2r-taichung",
-  storageBucket: "plus2r-taichung.firebasestorage.app",
+  storageBucket: "plus2r-taichung.appspot.com",
   messagingSenderId: "163462804695",
   appId: "1:163462804695:web:6c915b616d02d167f7ec92",
   measurementId: "G-0L97P1Y9HZ"
@@ -315,11 +317,8 @@ const firebaseConfig = {
   window.__fb = {
     auth: getAuth(app),
     db: getFirestore(app),
-    addDoc,
-    collection,
-    serverTimestamp,
-    signInAnonymously,
-    onAuthStateChanged,
+    collection, doc, writeBatch, serverTimestamp,
+    signInAnonymously, onAuthStateChanged,addDoc,
   };
 </script>
 
@@ -338,22 +337,35 @@ const firebaseConfig = {
     </label>
     <label class="stack">
       <span>電話</span>
-      <input id="cust-phone" type="tel" required placeholder="0906xxxxxx" pattern="^[0-9+\-() ]{8,}$" style="height:36px;padding:6px 10px;border:1px solid #d1d5db;border-radius:8px">
+      <input id="cust-phone" type="tel" required
+       placeholder="0xxxxxxxxx"
+       pattern="^0[0-9]{9}$"
+       title="必須是 0 開頭的 10 位數字"
+       style="height:36px;padding:6px 10px;border:1px solid #d1d5db;border-radius:8px">
+
     </label>
     <label class="stack">
       <span>Email</span>
-      <input id="cust-email" type="email" required placeholder="name@example.com" style="height:36px;padding:6px 10px;border:1px solid #d1d5db;border-radius:8px">
+      <input id="cust-email" type="email" required placeholder="name@example.com"
+             style="height:36px;padding:6px 10px;border:1px solid #d1d5db;border-radius:8px">
     </label>
-
+    <label class="stack">
+      <span>身分證字號</span>
+      <input id="cust-nid" type="text" required placeholder="A123456789"
+             style="height:36px;padding:6px 10px;border:1px solid #d1d5db;border-radius:8px"
+             pattern="^[A-Za-z][12][0-9]{8}$" title="格式為英文字母+1或2+8位數字，例如 A123456789">
+    </label>
+  
     <label style="display:flex;gap:8px;align-items:center;margin-top:4px">
       <input id="agree" type="checkbox" required>
       <span class="muted">我同意診所使用本資料處理訂單</span>
     </label>
-
+  
     <div class="row" style="justify-content:flex-end;margin-top:6px">
       <button class="btn primary" type="submit">開始選購</button>
     </div>
   </form>
+  
 </div>
 <div id="shop-root" style="display:none">
   <!-- 深色抬頭區 -->
@@ -648,7 +660,27 @@ const firebaseConfig = {
       super:   initialStateFromBundle('super'),
       light:   initialStateFromBundle('light')
     };
-    
+    // 將像 "$45,000" 或 "-$4,480" 的金額字串轉為整數（單位：元）
+// 會處理 $、逗號、空白、負號；若是會計括號 "(1,000)" 也當作 -1000
+function toCents(text) {
+  if (text == null) return 0;
+  const s = String(text).trim();
+  if (!s) return 0;
+
+  const hasParen = /^\(.*\)$/.test(s);            // 會計用括號代表負數
+  const cleaned  = s.replace(/[^0-9.\-]/g, "");    // 移除 $ 、逗號等，只留數字/小數點/負號
+  const num = parseFloat(cleaned);
+
+  if (isNaN(num)) return 0;
+  const val = hasParen ? -num : num;
+
+  // 你目前的金額都是整數元，保險起見四捨五入
+  return Math.round(val);
+}
+
+// 讓 module script 也能拿到
+window.toCents = toCents;
+
     /****************** 工具 ******************/
     const $ = s=>document.querySelector(s);
     const $$ = s=>[...document.querySelectorAll(s)];
@@ -1282,7 +1314,7 @@ function addBundle(key){
     function submitOrder(){
       if(cart.length===0){ alert('購物車是空的'); return; }
       const payload = { orderNo: document.getElementById('orderNo').textContent, items: cart };
-      console.log('送出訂單：', payload); alert('已送出（示範：僅 console.log）');
+      console.log('送出訂單：', payload); 
     }
     
     /****************** 啟動 ******************/
@@ -1305,46 +1337,121 @@ function addBundle(key){
     
     </script>
     <script type="module">
-      const { auth, db, addDoc, collection, serverTimestamp, signInAnonymously, onAuthStateChanged } = window.__fb;
-    
-      // 1) 先匿名登入（讓 Firestore create 訂單有身分）
-      signInAnonymously(auth).catch(console.error);
-    
-      // 2) Gate：顧客表單
-      const gateEl = document.getElementById('customer-gate');
-      const shopEl = document.getElementById('shop-root');
-    
-      // 若本地已有顧客資料（例如回購），可直接放行
-      const saved = JSON.parse(localStorage.getItem('customerInfo') || 'null');
-      if (saved?.name && saved?.phone && saved?.email) {
-        gateEl.style.display = 'none';
-        shopEl.style.display = '';
-      }
-    
-      document.getElementById('customer-form').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const info = {
-          name:  document.getElementById('cust-name').value.trim(),
-          phone: document.getElementById('cust-phone').value.trim(),
-          email: document.getElementById('cust-email').value.trim()
-        };
-        if (!info.name || !info.phone || !info.email) return;
-    
-        localStorage.setItem('customerInfo', JSON.stringify(info));
-        gateEl.style.display = 'none';
-        shopEl.style.display = '';
+      const {
+  auth, db, addDoc, collection,
+  serverTimestamp, signInAnonymously, onAuthStateChanged,
+  doc, writeBatch
+} = window.__fb;
+
+
+// 1) 匿名登入
+signInAnonymously(auth).catch(console.error);
+
+// 🧩 小保險：等登入完成再開啟「開始選購」按鈕
+const startBtn = document.querySelector('#customer-form button[type="submit"]');
+startBtn.disabled = true;
+onAuthStateChanged(auth, (user) => {
+  if (user) startBtn.disabled = false;
+});
+
+// DOM
+const gateEl = document.getElementById('customer-gate');
+const shopEl = document.getElementById('shop-root');
+
+      // ✅ 工具：正規化資料（電話淨化、Email 小寫、身分證大寫）
+      const normalizeInfo = (raw) => ({
+        name: raw.name.trim(),
+        phone: raw.phone.replace(/[^\d+]/g, ''), // 只留數字與 +
+        email: raw.email.trim().toLowerCase(),
+        nationalId: raw.nationalId.trim().toUpperCase(),
       });
     
-      // 3) 覆寫你原本的 submitOrder：送單 → Firestore
-      //    （保留你原本 console.log 與 alert 行為）
+      // ✅ 查重：三條件任一命中即視為「已存在」
+      async function customerExists({ phone, email, nationalId }) {
+        const customersRef = collection(db, 'customers');
+    
+        const [qPhoneSnap, qEmailSnap, qNidSnap] = await Promise.all([
+          getDocs(query(customersRef, where('phone', '==', phone))),
+          getDocs(query(customersRef, where('email', '==', email))),
+          getDocs(query(customersRef, where('nationalId', '==', nationalId))),
+        ]);
+    
+        return !qPhoneSnap.empty || !qEmailSnap.empty || !qNidSnap.empty;
+      }
+    
+      // ❗ 不再因為 localStorage 有資料就自動放行
+      // 讓每次進入都必須通過 Gate + 查重
+      gateEl.style.display = '';
+      shopEl.style.display = 'none';
+    
+      // 2) Gate：提交表單 → 先查重 → 若未重複就「建立 customers 檔案」並放行
+      document.getElementById('customer-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const infoRaw = {
+    name:  document.getElementById('cust-name').value || '',
+    phone: document.getElementById('cust-phone').value || '',
+    email: document.getElementById('cust-email').value || '',
+    nationalId: document.getElementById('cust-nid').value || '',
+  };
+  if (!infoRaw.name.trim() || !infoRaw.phone.trim() || !infoRaw.email.trim() || !infoRaw.nationalId.trim()) {
+    alert('請完整填寫資料');
+    return;
+  }
+
+  const info = normalizeInfo(infoRaw); // 你前面已定義的 normalizeInfo
+
+  try {
+    // 🧩 原子批次：建立 3 個唯一鍵 + 1 個 customer
+    const batch = writeBatch(db);
+
+    // 固定 ID 的 doc：若已存在，這次 set 會被視為 update，規則不允許 update → 批次失敗
+    const phoneRef = doc(db, 'phoneKeys', info.phone);
+    const emailRef = doc(db, 'emailKeys', info.email);
+    const nidRef   = doc(db, 'nidKeys', info.nationalId);
+
+    const customersRef = collection(db, 'customers');
+    const custRef = doc(customersRef); // 先產一個新的自動 ID
+
+    const stamp = serverTimestamp();
+
+    batch.set(phoneRef, { createdAt: stamp, customerRef: custRef.path });
+    batch.set(emailRef, { createdAt: stamp, customerRef: custRef.path });
+    batch.set(nidRef,   { createdAt: stamp, customerRef: custRef.path });
+
+    batch.set(custRef, {
+      ...info,
+      createdAt: stamp,
+      source: 'gate',
+    });
+
+    await batch.commit();  // ✅ 全部成功才會真的寫進去
+
+    // 本地保存，進入商店
+    localStorage.setItem('customerInfo', JSON.stringify(info));
+    gateEl.style.display = 'none';
+    shopEl.style.display = '';
+  } catch (err) {
+    console.error(err);
+    // 規則拒絕（常見 code：permission-denied）→ 多半是某個唯一鍵已存在
+    if (err?.code === 'permission-denied') {
+      alert('資料重複：電話 / Email / 身分證其中一項已存在於舊資料，無法進入購物。');
+    } else {
+      alert('驗證失敗，請稍後再試');
+    }
+  }
+});
+
+    
+      // 3) 覆寫 submitOrder（沿用你原本行為；此段不變）
       const _origSubmitOrder = window.submitOrder;
       window.submitOrder = async function () {
         if (cart.length === 0) { alert('購物車是空的'); return; }
     
         const info = JSON.parse(localStorage.getItem('customerInfo') || 'null');
-        if (!info?.name || !info?.phone || !info?.email) {
+        if (!info?.name || !info?.phone || !info?.email || !info?.nationalId) {
           alert('請先填寫顧客基本資料');
-          gateEl.style.display = '';  // 拉回 Gate
+          gateEl.style.display = '';
           shopEl.style.display = 'none';
           return;
         }
@@ -1352,15 +1459,15 @@ function addBundle(key){
         const orderNo = document.getElementById('orderNo').textContent;
         const payload = {
           orderNo,
-          customer: info,                     // {name, phone, email}
-          items: cart,                        // 你的 cart 陣列
+          customer: info,
+          items: JSON.parse(JSON.stringify(cart)),
           totals: {
-            subtotal: document.getElementById('subtotal').textContent,
-            discount: document.getElementById('discount').textContent,
-            grand:    document.getElementById('grandTotal').textContent
+            subtotalCents: toCents(document.getElementById('subtotal').textContent),
+            discountCents: toCents(document.getElementById('discount').textContent),
+            grandCents:    toCents(document.getElementById('grandTotal').textContent),
           },
           createdAt: serverTimestamp(),
-          from: "github-pages/index.html"     // 來源標註（可選）
+          from: "github-pages/index.html"
         };
     
         try {
@@ -1368,18 +1475,15 @@ function addBundle(key){
           console.log('送出訂單：', payload);
           alert('已送出！我們已收到您的訂單。');
     
-          // 清空購物車（保留顧客資料以便回購）
           cart.length = 0;
           renderCart();
         } catch (err) {
           console.error(err);
           alert('送單失敗，請稍後再試');
         }
-    
-        // 若你還想執行舊的 console.log/alert，可保留
-        if (typeof _origSubmitOrder === 'function') _origSubmitOrder();
       };
     </script>
+    
     
 </body>
 </html>
