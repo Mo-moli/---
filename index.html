@@ -355,7 +355,36 @@
              style="height:36px;padding:6px 10px;border:1px solid #d1d5db;border-radius:8px"
              pattern="^[A-Za-z][12][0-9]{8}$" title="格式為英文字母+1或2+8位數字，例如 A123456789">
     </label>
-  
+  <!-- 新增：收件地址 -->
+<label class="stack">
+  <span>收件地址</span>
+  <input id="cust-address" type="text" required placeholder="台中市西屯區…"
+         style="height:36px;padding:6px 10px;border:1px solid #d1d5db;border-radius:8px">
+</label>
+
+<!-- 新增：付款方式（預設匯款） -->
+<fieldset style="border:0;padding:0;margin:0">
+  <legend class="muted" style="margin-bottom:6px">付款方式</legend>
+  <label style="display:inline-flex;align-items:center;gap:6px;margin-right:16px">
+    <input type="radio" name="payMethod" value="remit" id="pay-remit" checked>
+    <span>匯款</span>
+  </label>
+  <!-- <label style="display:inline-flex;align-items:center;gap:6px">
+    <input type="radio" name="payMethod" value="cash" id="pay-cash">
+    <span>現金</span> -->
+  <!-- </label> --> 
+</fieldset>
+
+<!-- 新增：匯款後五碼（僅匯款時顯示/必填） -->
+<label class="stack" id="last5-wrap">
+  <span>匯款帳號後五碼</span>
+  <input id="remit-last5" inputmode="numeric" pattern="^[0-9]{5}$" maxlength="5"
+         placeholder="12345"
+         title="請輸入 5 位數字"
+         style="height:36px;padding:6px 10px;border:1px solid #d1d5db;border-radius:8px">
+  <small class="muted">※ 暫不開放現金付款</small>
+</label>
+
     <label style="display:flex;gap:8px;align-items:center;margin-top:4px">
       <input id="agree" type="checkbox" required>
       <span class="muted">我同意診所使用本資料處理訂單</span>
@@ -1357,14 +1386,35 @@ onAuthStateChanged(auth, (user) => {
 // DOM
 const gateEl = document.getElementById('customer-gate');
 const shopEl = document.getElementById('shop-root');
+// ✅ 在這裡插入付款方式切換程式碼
+const payRemit   = document.getElementById('pay-remit');
+const payCash    = document.getElementById('pay-cash');   // 可能不存在
+const last5Wrap  = document.getElementById('last5-wrap');
+const remitLast5 = document.getElementById('remit-last5');
+
+function updateLast5Required(){
+  const isRemit = !!payRemit && payRemit.checked;
+  last5Wrap.style.display = isRemit ? '' : 'none';
+  remitLast5.required = isRemit;
+  if (!isRemit) remitLast5.value = '';
+}
+
+if (payRemit) payRemit.addEventListener('change', updateLast5Required);
+if (payCash)  payCash.addEventListener('change',  updateLast5Required); // 只有存在才綁
+
+updateLast5Required(); // 初始化
 
       // ✅ 工具：正規化資料（電話淨化、Email 小寫、身分證大寫）
       const normalizeInfo = (raw) => ({
-        name: raw.name.trim(),
-        phone: raw.phone.replace(/[^\d+]/g, ''), // 只留數字與 +
-        email: raw.email.trim().toLowerCase(),
-        nationalId: raw.nationalId.trim().toUpperCase(),
-      });
+  name: raw.name.trim(),
+  phone: raw.phone.replace(/[^\d+]/g, ''), // 只留數字與 +
+  email: raw.email.trim().toLowerCase(),
+  nationalId: raw.nationalId.trim().toUpperCase(),
+  address: (raw.address ?? '').trim(),
+  payMethod: raw.payMethod === 'cash' ? 'cash' : 'remit',
+  remitLast5: (raw.remitLast5 ?? '').trim(),
+});
+
     
       // ✅ 查重：三條件任一命中即視為「已存在」
       async function customerExists({ phone, email, nationalId }) {
@@ -1389,15 +1439,25 @@ const shopEl = document.getElementById('shop-root');
   e.preventDefault();
 
   const infoRaw = {
-    name:  document.getElementById('cust-name').value || '',
-    phone: document.getElementById('cust-phone').value || '',
-    email: document.getElementById('cust-email').value || '',
-    nationalId: document.getElementById('cust-nid').value || '',
-  };
-  if (!infoRaw.name.trim() || !infoRaw.phone.trim() || !infoRaw.email.trim() || !infoRaw.nationalId.trim()) {
-    alert('請完整填寫資料');
-    return;
-  }
+  name:  document.getElementById('cust-name').value || '',
+  phone: document.getElementById('cust-phone').value || '',
+  email: document.getElementById('cust-email').value || '',
+  nationalId: document.getElementById('cust-nid').value || '',
+  address: document.getElementById('cust-address')?.value || '',
+  payMethod: document.querySelector('input[name="payMethod"]:checked')?.value || 'remit',
+  remitLast5: document.getElementById('remit-last5')?.value || '',
+};
+
+// 基本必填
+if (!infoRaw.name.trim() || !infoRaw.phone.trim() || !infoRaw.email.trim() || !infoRaw.nationalId.trim() || !infoRaw.address.trim()) {
+  alert('請完整填寫資料'); return;
+}
+// 匯款 → 後五碼必填且為 5 位數字
+if (infoRaw.payMethod === 'remit' && !/^\d{5}$/.test(infoRaw.remitLast5)) {
+  alert('請輸入 5 位數字的匯款帳號後五碼'); return;
+}
+
+  
 
   const info = normalizeInfo(infoRaw); // 你前面已定義的 normalizeInfo
 
