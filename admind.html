@@ -1,153 +1,442 @@
 <!doctype html>
 <html lang="zh-Hant">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>訂單管理後台</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;800&display=swap" rel="stylesheet">
-<style>
-  body{font-family:"Noto Sans TC",system-ui; margin:0; background:#f7f7f9; color:#1b2430}
-  .wrap{max-width:1100px;margin:24px auto;padding:0 12px}
-  .card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden}
-  h1{font-size:22px;margin:0 0 12px}
-  table{width:100%;border-collapse:collapse}
-  th,td{padding:10px;border-bottom:1px solid #e5e7eb;text-align:left;font-size:14px;vertical-align:top}
-  .muted{color:#6b7280}
-  .btn{appearance:none;border:1px solid #4b5569;background:#4b5569;color:#fff;border-radius:8px;padding:6px 10px;cursor:pointer}
-  .login{max-width:420px;margin:48px auto}
-  details{background:#fafafa;border:1px solid #eee;border-radius:8px;padding:8px}
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>後台｜管理訂單與客戶（Email/Password 登入）</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --ink:#1b2430; --muted:#6b7280; --bg:#f7f7f9; --panel:#ffffff; --border:#e5e7eb;
+      --head:#2c3446; --head-text:#e5e7ee; --primary:#3556c6; --danger:#b91c1c; --ok:#0f766e;
+      --tab:#eef2f7; --tab-active:#4b5569; --tab-active-text:#fff;
+      --page-max: 1200px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; background:var(--bg); color:var(--ink);
+      font-family:"Noto Sans TC", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      letter-spacing:.2px;
+    }
+    .topbar{ background:var(--head); color:var(--head-text); }
+    .topbar .inner{ max-width:var(--page-max); margin:0 auto; padding:14px 16px; display:flex; align-items:center; justify-content:space-between; }
+    .who{ font-size:14px; opacity:.9 }
+    .btn{ appearance:none; border:1px solid var(--border); background:#fff; color:var(--ink); padding:8px 12px; border-radius:10px; cursor:pointer; font-weight:500 }
+    .btn.primary{ background:var(--primary); border-color:var(--primary); color:#fff }
+    .btn.danger{ background:var(--danger); border-color:var(--danger); color:#fff }
+    .btn.ghost{ background:transparent; color:#fff; border-color:rgba(255,255,255,.35) }
+    .btn:disabled{ opacity:.5; cursor:not-allowed }
+
+    .wrap{ max-width:var(--page-max); margin:16px auto; padding:0 16px }
+
+    .panel{ background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:16px }
+
+    .tabs{ display:flex; gap:8px; margin:12px 0 16px }
+    .tab{ background:var(--tab); color:#111827; border:1px solid var(--border); border-radius:999px; padding:8px 12px; cursor:pointer; font-weight:600; font-size:14px }
+    .tab.active{ background:var(--tab-active); color:var(--tab-active-text); border-color:var(--tab-active) }
+
+    .grid{ display:grid; grid-template-columns:1fr; gap:12px }
+    @media(min-width:900px){ .grid{ grid-template-columns: 1fr 320px } }
+
+    .field{ display:flex; flex-direction:column; gap:6px; margin-bottom:10px }
+    .field label{ font-size:13px; color:var(--muted) }
+    .field input{ padding:10px 12px; border:1px solid var(--border); border-radius:10px }
+
+    table{ width:100%; border-collapse:collapse; font-size:14px }
+    th, td{ padding:10px 8px; border-bottom:1px solid var(--border); vertical-align:top }
+    th{ text-align:left; color:#475569; font-weight:700 }
+    tbody tr:hover{ background:#fafafa }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace }
+    .pill{ display:inline-block; padding:2px 8px; border-radius:999px; background:#eef2ff; color:#3730a3; font-weight:700; font-size:12px }
+
+    .loginBox{ max-width:420px; margin:48px auto }
+    .muted{ color:var(--muted) }
+    .flex{ display:flex; align-items:center; gap:8px }
+
+    .toolbar{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px }
+    .toolbar input, .toolbar select{ padding:8px 10px; border:1px solid var(--border); border-radius:10px }
+  </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>訂單管理後台</h1>
-
-  <!-- 登入 -->
-  <div id="login" class="card login" style="padding:16px">
-    <form id="loginForm" class="stack" style="display:flex;flex-direction:column;gap:10px">
-      <label>管理員 Email<br><input id="adminEmail" type="email" required style="width:100%;height:36px;padding:6px 10px;border:1px solid #d1d5db;border-radius:8px"></label>
-      <label>密碼<br><input id="adminPass" type="password" required style="width:100%;height:36px;padding:6px 10px;border:1px solid #d1d5db;border-radius:8px"></label>
-      <button class="btn" type="submit">登入</button>
-      <div class="muted">登入後可檢視訂單（需要在 Firestore 規則中列入白名單）。</div>
-    </form>
-  </div>
-
-  <!-- 訂單列表 -->
-  <div id="ordersBox" class="card" style="display:none">
-    <div style="padding:12px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center">
-      <strong>訂單列表</strong>
-      <button id="logout" class="btn" type="button">登出</button>
+  <header class="topbar">
+    <div class="inner">
+      <div class="flex" style="gap:12px">
+        <strong>台中04 後台</strong>
+        <span class="pill">Admin</span>
+      </div>
+      <div class="flex">
+        <div id="whoami" class="who">未登入</div>
+        <button id="btnSignOut" class="btn ghost" style="margin-left:10px; display:none">登出</button>
+      </div>
     </div>
-    <div style="padding:0">
-      <table>
-        <thead>
-          <tr>
-            <th>建立時間</th>
-            <th>訂單號</th>
-            <th>顧客</th>
-            <th>總計</th>
-            <th>內容</th>
-          </tr>
-        </thead>
-        <tbody id="ordersTbody"></tbody>
-      </table>
+  </header>
+
+  <!-- 未登入：Email/Password 登入表單 -->
+  <div id="loginSection" class="wrap">
+    <div class="panel loginBox">
+      <h2 style="margin:0 0 8px">管理員登入</h2>
+      <p class="muted" style="margin:0 0 14px">使用 Firebase Authentication 的 Email/Password。登入成功後可讀/改/刪 Firestore 中的訂單與客戶。</p>
+      <div class="field">
+        <label>電子郵件</label>
+        <input id="iptEmail" type="email" placeholder="admin@example.com" />
+      </div>
+      <div class="field">
+        <label>密碼</label>
+        <input id="iptPass" type="password" placeholder="•••••••" />
+      </div>
+      <div class="flex" style="justify-content:space-between">
+        <button id="btnSignIn" class="btn primary">登入</button>
+        <span id="loginMsg" class="muted"></span>
+      </div>
     </div>
   </div>
-</div>
 
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-  import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-  import { getFirestore, collection, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+  <!-- 已登入：主介面 -->
+  <div id="appSection" class="wrap" style="display:none">
+    <div class="panel">
+      <div class="tabs">
+        <button class="tab active" data-tab="orders">訂單 Orders</button>
+        <button class="tab" data-tab="customers">客戶 Customers</button>
+      </div>
 
-  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
+      <!-- Orders 視圖 -->
+      <section id="view-orders">
+        <div class="toolbar">
+          <input id="qOrderNo" class="mono" placeholder="依訂單編號搜尋（包含關鍵字）" />
+          <select id="qStatus">
+            <option value="">全部狀態</option>
+            <option value="pending">pending</option>
+            <option value="paid">paid</option>
+            <option value="shipped">shipped</option>
+            <option value="cancelled">cancelled</option>
+          </select>
+          <button id="btnRefreshOrders" class="btn">重新整理</button>
+        </div>
+        <div class="panel" style="padding:0">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:180px">建立時間</th>
+                <th>訂單編號 / 來源</th>
+                <th>客戶</th>
+                <th>項目數</th>
+                <th>金額</th>
+                <th>狀態</th>
+                <th style="width:180px">動作</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyOrders"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Customers 視圖 -->
+      <section id="view-customers" style="display:none">
+        <div class="toolbar">
+          <input id="qCustomer" placeholder="依姓名或 email 搜尋" />
+          <button id="btnRefreshCustomers" class="btn">重新整理</button>
+        </div>
+        <div class="panel" style="padding:0">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:180px">ID</th>
+                <th>姓名</th>
+                <th>電話</th>
+                <th>Email</th>
+                <th style="width:180px">動作</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyCustomers"></tbody>
+          </table>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <script type="module">
+    // ===== 1) 初始化 Firebase =====
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
+    import {
+      getFirestore, collection, query, orderBy, onSnapshot, getDocs,
+      where, limit, startAfter, doc, updateDoc, deleteDoc, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+
+    // TODO: ⚠️ 將下方替換為你的 Firebase 設定（可複製 index.html 內已使用的設定）
+    const firebaseConfig = {
   apiKey: "AIzaSyByf-Dt9Yiqxx-iKEHdlSHOaOLSDPB89qY",
   authDomain: "plus2r-taichung.firebaseapp.com",
   projectId: "plus2r-taichung",
-  storageBucket: "plus2r-taichung.firebasestorage.app",
+  storageBucket: "plus2r-taichung.appspot.com",
   messagingSenderId: "163462804695",
   appId: "1:163462804695:web:6c915b616d02d167f7ec92",
   measurementId: "G-0L97P1Y9HZ"
 };
 
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db   = getFirestore(app);
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
 
-  const $ = s => document.querySelector(s);
-  const tbody = $("#ordersTbody");
-  const loginBox = $("#login");
-  const ordersBox = $("#ordersBox");
+    // ===== 2) 元件抓取 =====
+    const loginSection = document.getElementById('loginSection');
+    const appSection   = document.getElementById('appSection');
 
-  $("#loginForm").addEventListener("submit", async (e)=>{
-    e.preventDefault();
-    const email = $("#adminEmail").value.trim();
-    const pass  = $("#adminPass").value;
-    try{
-      await signInWithEmailAndPassword(auth, email, pass);
-    }catch(err){
-      alert("登入失敗：" + (err?.message||err));
+    const iptEmail = document.getElementById('iptEmail');
+    const iptPass  = document.getElementById('iptPass');
+    const btnSignIn = document.getElementById('btnSignIn');
+    const btnSignOut = document.getElementById('btnSignOut');
+    const whoami = document.getElementById('whoami');
+    const loginMsg = document.getElementById('loginMsg');
+
+    const tabButtons = document.querySelectorAll('.tab');
+    const viewOrders = document.getElementById('view-orders');
+    const viewCustomers = document.getElementById('view-customers');
+
+    const tbodyOrders = document.getElementById('tbodyOrders');
+    const tbodyCustomers = document.getElementById('tbodyCustomers');
+
+    const qOrderNo = document.getElementById('qOrderNo');
+    const qStatus  = document.getElementById('qStatus');
+    const btnRefreshOrders = document.getElementById('btnRefreshOrders');
+
+    const qCustomer = document.getElementById('qCustomer');
+    const btnRefreshCustomers = document.getElementById('btnRefreshCustomers');
+
+    // ===== 3) 事件：登入 / 登出 =====
+    btnSignIn.addEventListener('click', async () => {
+      loginMsg.textContent = '';
+      btnSignIn.disabled = true;
+      try{
+        const email = iptEmail.value.trim();
+        const pass  = iptPass.value;
+        await signInWithEmailAndPassword(auth, email, pass);
+      }catch(err){
+        loginMsg.textContent = err.message;
+      }finally{
+        btnSignIn.disabled = false;
+      }
+    });
+
+    btnSignOut.addEventListener('click', async () => {
+      await signOut(auth);
+    });
+
+    // ===== 4) 切換分頁 =====
+    tabButtons.forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        tabButtons.forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        const tab = btn.getAttribute('data-tab');
+        viewOrders.style.display = (tab==='orders') ? '' : 'none';
+        viewCustomers.style.display = (tab==='customers') ? '' : 'none';
+      });
+    });
+
+    // ===== 5) 登入狀態監聽 =====
+    let unsubOrders = null; // onSnapshot 解除用
+
+    onAuthStateChanged(auth, async (user) => {
+      if(!user){
+        whoami.textContent = '未登入';
+        loginSection.style.display = '';
+        appSection.style.display = 'none';
+        btnSignOut.style.display = 'none';
+        if (unsubOrders) { unsubOrders(); unsubOrders = null; }
+        return;
+      }
+      const token = await user.getIdTokenResult();
+      whoami.textContent = `目前登入：${user.email ?? '(沒有 email)'}`;
+      btnSignOut.style.display = '';
+
+      // 顯示主畫面
+      loginSection.style.display = 'none';
+      appSection.style.display = '';
+
+      // 預設載入訂單清單
+      loadOrders();
+    });
+
+    // ===== 6) 訂單列表：監聽＋渲染 =====
+    function renderOrdersRow(id, o){
+      const tr = document.createElement('tr');
+      const created = o.createdAt?.toDate?.() ? o.createdAt.toDate() : null;
+      const when = created ? created.toLocaleString() : '-';
+      const itemsCount = Array.isArray(o.items) ? o.items.length : 0;
+      const total = (o.totals?.grand ?? '').toString();
+      const status = o.status ?? '(未設定)';
+      const cust = o.customer ?? {};
+
+      tr.innerHTML = `
+        <td>${when}</td>
+        <td>
+          <div class="mono">${o.orderNo ?? id}</div>
+          <div class="muted" style="font-size:12px">from: ${o.from ?? '-'}</div>
+        </td>
+        <td>
+          <div>${cust.name ?? '-'}</div>
+          <div class="muted" style="font-size:12px">${cust.phone ?? ''} ${cust.email ?? ''}</div>
+        </td>
+        <td>${itemsCount}</td>
+        <td>${total}</td>
+        <td><span class="pill">${status}</span></td>
+        <td>
+          <button class="btn" data-edit="${id}">編輯</button>
+          <button class="btn danger" data-del="${id}" style="margin-left:6px">刪除</button>
+        </td>
+      `;
+      return tr;
     }
-  });
 
-  $("#logout").addEventListener("click", ()=> signOut(auth));
+    async function bindOrdersActions(){
+      // 編輯
+      tbodyOrders.querySelectorAll('[data-edit]').forEach(btn=>{
+        btn.addEventListener('click', async ()=>{
+          const id = btn.getAttribute('data-edit');
+          const newStatus = prompt('輸入訂單狀態（pending / paid / shipped / cancelled）');
+          const newPhone = prompt('輸入顧客電話（留空則不變）');
 
-  onAuthStateChanged(auth, (user)=>{
-    if(user){
-      loginBox.style.display = "none";
-      ordersBox.style.display = "";
+          const patch = { updatedAt: serverTimestamp() };
+          if (newStatus && newStatus.trim()) patch.status = newStatus.trim();
+          if (newPhone && newPhone.trim()) patch['customer.phone'] = newPhone.trim();
 
-      // 即時監聽訂單
-      const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
-      onSnapshot(q, (snap)=>{
-        tbody.innerHTML = "";
-        snap.forEach(doc=>{
-          const o = doc.data();
-          const t = o.createdAt?.toDate?.() || new Date(0);
-          const tr = document.createElement("tr");
-          const cartHtml = (o.items||[]).map(it=>{
-            const title =
-              it.type === 'single' ? `單品｜${it.name}`
-              : it.type === 'bundle' ? `套組｜${it.name}`
-              : `組合｜${it.name}`;
-            const sel  = (it.selections||[]).map(s=>`${s.name}×${s.qty}`).join('、');
-            const line = it.type==='single' ? `${it.qty} × $${(it.unitPrice||0).toLocaleString()}`
-                      : it.type==='bundle' ? `每組折前 $${(it.unitSubtotal||0).toLocaleString()} - 折扣 $${(it.unitDiscount||0).toLocaleString()} × ${it.qty}`
-                      : `組合價 $${(it.rule?.fixedPrice||0).toLocaleString()} × ${it.qty}`;
-            return `<li><strong>${title}</strong> ${sel?`<span class="muted">（${sel}）</span>`:''}<br><span class="muted">${line}</span></li>`;
-          }).join("");
-
-          tr.innerHTML = `
-            <td>${t.toLocaleString('zh-TW')}</td>
-            <td>${o.orderNo || ''}</td>
-            <td>
-              ${o.customer?.name || ''}<br>
-              <span class="muted">${o.customer?.phone || ''}</span><br>
-              <span class="muted">${o.customer?.email || ''}</span>
-            </td>
-            <td>
-              <div>小計：${o.totals?.subtotal || ''}</div>
-              <div>折扣：${o.totals?.discount || ''}</div>
-              <div><strong>總計：${o.totals?.grand || ''}</strong></div>
-            </td>
-            <td>
-              <details>
-                <summary>查看</summary>
-                <ul style="margin:8px 0 0 16px; padding:0">${cartHtml}</ul>
-              </details>
-            </td>
-          `;
-          tbody.appendChild(tr);
+          if (Object.keys(patch).length > 1){
+            try{
+              await updateDoc(doc(db,'orders',id), patch);
+              alert('已更新');
+            }catch(e){
+              alert('更新失敗：' + e.message);
+            }
+          }
         });
       });
-
-    }else{
-      ordersBox.style.display = "none";
-      loginBox.style.display  = "";
-      tbody.innerHTML = "";
+      // 刪除
+      tbodyOrders.querySelectorAll('[data-del]').forEach(btn=>{
+        btn.addEventListener('click', async ()=>{
+          const id = btn.getAttribute('data-del');
+          if (!confirm('確定要刪除這筆訂單嗎？此動作無法復原！')) return;
+          try{
+            await deleteDoc(doc(db,'orders',id));
+            alert('已刪除');
+          }catch(e){
+            alert('刪除失敗：' + e.message);
+          }
+        });
+      });
     }
-  });
-</script>
+
+    function loadOrders(){
+      if (unsubOrders) { unsubOrders(); unsubOrders = null; }
+      const col = collection(db,'orders');
+      const q = query(col, orderBy('createdAt','desc'));
+      unsubOrders = onSnapshot(q, (snap)=>{
+        tbodyOrders.innerHTML = '';
+        snap.forEach(docSnap=>{
+          const o = docSnap.data();
+          const tr = renderOrdersRow(docSnap.id, o);
+          tbodyOrders.appendChild(tr);
+        });
+        bindOrdersActions();
+      }, (err)=>{
+        console.error('orders snapshot error', err);
+        alert('讀取訂單失敗：' + err.message);
+      });
+    }
+
+    // 查詢條件（簡易前端過濾，先能用）
+    btnRefreshOrders.addEventListener('click', ()=>{
+      // 這裡先直接重載資料（若要真正後端過濾，可改成 where + composite index）
+      loadOrders();
+      // 前端過濾：等 snapshot 填滿後用
+      setTimeout(()=>{
+        const kw = (qOrderNo.value || '').trim().toLowerCase();
+        const st = (qStatus.value || '').trim().toLowerCase();
+        Array.from(tbodyOrders.children).forEach(tr=>{
+          const orderNo = tr.querySelector('.mono')?.textContent?.toLowerCase() || '';
+          const statusText = tr.querySelector('.pill')?.textContent?.toLowerCase() || '';
+          const hit = (!kw || orderNo.includes(kw)) && (!st || statusText===st);
+          tr.style.display = hit ? '' : 'none';
+        });
+      }, 300);
+    });
+
+    // ===== 7) 客戶列表（讀 / 改 / 刪） =====
+    function renderCustomerRow(id, c){
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="mono">${id}</td>
+        <td>${c.name ?? '-'}</td>
+        <td>${c.phone ?? '-'}</td>
+        <td>${c.email ?? '-'}</td>
+        <td>
+          <button class="btn" data-edit-cust="${id}">編輯</button>
+          <button class="btn danger" data-del-cust="${id}" style="margin-left:6px">刪除</button>
+        </td>
+      `;
+      return tr;
+    }
+
+    async function loadCustomers(){
+      tbodyCustomers.innerHTML = '';
+      try{
+        const snap = await getDocs(query(collection(db,'customers')));
+        snap.forEach(docSnap=>{
+          const c = docSnap.data();
+          const tr = renderCustomerRow(docSnap.id, c);
+          tbodyCustomers.appendChild(tr);
+        });
+        bindCustomersActions();
+      }catch(e){
+        alert('讀取客戶失敗：' + e.message);
+      }
+    }
+
+    function bindCustomersActions(){
+      // 編輯
+      tbodyCustomers.querySelectorAll('[data-edit-cust]').forEach(btn=>{
+        btn.addEventListener('click', async ()=>{
+          const id = btn.getAttribute('data-edit-cust');
+          const newName = prompt('客戶姓名');
+          const newPhone = prompt('客戶電話');
+          const newEmail = prompt('客戶 Email');
+          const patch = {};
+          if (newName && newName.trim())  patch.name = newName.trim();
+          if (newPhone && newPhone.trim()) patch.phone = newPhone.trim();
+          if (newEmail && newEmail.trim()) patch.email = newEmail.trim();
+          if (Object.keys(patch).length){
+            try{
+              await updateDoc(doc(db,'customers',id), patch);
+              alert('已更新');
+              loadCustomers();
+            }catch(e){ alert('更新失敗：' + e.message); }
+          }
+        });
+      });
+      // 刪除
+      tbodyCustomers.querySelectorAll('[data-del-cust]').forEach(btn=>{
+        btn.addEventListener('click', async ()=>{
+          const id = btn.getAttribute('data-del-cust');
+          if (!confirm('確定刪除此客戶？此動作無法復原！')) return;
+          try{
+            await deleteDoc(doc(db,'customers',id));
+            alert('已刪除');
+            loadCustomers();
+          }catch(e){ alert('刪除失敗：' + e.message); }
+        });
+      });
+    }
+
+    btnRefreshCustomers.addEventListener('click', loadCustomers);
+
+    // 切到 Customers 分頁時載入（避免未授權就打 API）
+    document.querySelector('[data-tab="customers"]').addEventListener('click', ()=>{
+      loadCustomers();
+    });
+
+  </script>
 </body>
 </html>
