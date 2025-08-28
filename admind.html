@@ -169,9 +169,13 @@
                 <th>姓名</th>
                 <th>電話</th>
                 <th>Email</th>
+                <th>地址</th>
+                <th>付款</th>
+                <th>後五碼</th>
                 <th style="width:180px">動作</th>
               </tr>
             </thead>
+            
             <tbody id="tbodyCustomers"></tbody>
           </table>
         </div>
@@ -342,7 +346,7 @@ if (grandInt != null) {
           <div class="muted" style="font-size:12px">${cust.phone ?? ''} ${cust.email ?? ''}</div>
         </td>
         <td>${itemsCount}</td>
-        <td>${total}</td>
+        <td>${total === '-' ? '-' : `$${total}`}</td>
         <td><span class="pill">${status}</span></td>
         <td>
           <button class="btn" data-view="${id}">查看</button>
@@ -439,19 +443,23 @@ if (grandInt != null) {
 
     // ===== 7) 客戶列表（讀 / 改 / 刪） =====
     function renderCustomerRow(id, c){
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td class="mono">${id}</td>
-        <td>${c.name ?? '-'}</td>
-        <td>${c.phone ?? '-'}</td>
-        <td>${c.email ?? '-'}</td>
-        <td>
-          <button class="btn" data-edit-cust="${id}">編輯</button>
-          <button class="btn danger" data-del-cust="${id}" style="margin-left:6px">刪除</button>
-        </td>
-      `;
-      return tr;
-    }
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td class="mono">${id}</td>
+    <td>${c.name ?? '-'}</td>
+    <td>${c.phone ?? '-'}</td>
+    <td>${c.email ?? '-'}</td>
+    <td>${c.address ?? '-'}</td>
+    <td>${c.payMethod === 'cash' ? '現金' : '匯款'}</td>
+    <td>${c.payMethod === 'remit' ? (c.remitLast5 || '-') : '-'}</td>
+    <td>
+      <button class="btn" data-edit-cust="${id}">編輯</button>
+      <button class="btn danger" data-del-cust="${id}" style="margin-left:6px">刪除</button>
+    </td>
+  `;
+  return tr;
+}
+
 
     async function loadCustomers(){
       tbodyCustomers.innerHTML = '';
@@ -640,15 +648,18 @@ if (grandInt != null) {
       </div>
 
       <div class="section">
-        <h3>顧客資訊</h3>
-        <div class="kv">
-          <div class="k">姓名</div><div>${cust.name ?? '-'}</div>
-          <div class="k">電話</div><div>${cust.phone ?? '-'}</div>
-          <div class="k">Email</div><div>${cust.email ?? '-'}</div>
-          ${cust.address ? `<div class="k">地址</div><div>${cust.address}</div>` : ``}
-          ${cust.note ? `<div class="k">備註</div><div>${cust.note}</div>` : ``}
-        </div>
-      </div>
+  <h3>顧客資訊</h3>
+  <div class="kv">
+    <div class="k">姓名</div><div>${cust.name ?? '-'}</div>
+    <div class="k">電話</div><div>${cust.phone ?? '-'}</div>
+    <div class="k">Email</div><div>${cust.email ?? '-'}</div>
+    ${cust.address ? `<div class="k">地址</div><div>${cust.address}</div>` : ``}
+    <div class="k">付款方式</div><div>${cust.payMethod === 'cash' ? '現金' : '匯款'}</div>
+    ${cust.payMethod === 'remit' ? `<div class="k">匯款後五碼</div><div>${cust.remitLast5 ?? '-'}</div>` : ``}
+    ${cust.note ? `<div class="k">備註</div><div>${cust.note}</div>` : ``}
+  </div>
+</div>
+
 
       <div class="section">
         <h3>購物車項目（${rows.length}）</h3>
