@@ -31,7 +31,6 @@
     .btn:disabled{ opacity:.5; cursor:not-allowed }
 
     .wrap{ max-width:var(--page-max); margin:16px auto; padding:0 16px }
-
     .panel{ background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:16px }
 
     .tabs{ display:flex; gap:8px; margin:12px 0 16px }
@@ -58,6 +57,29 @@
 
     .toolbar{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px }
     .toolbar input, .toolbar select{ padding:8px 10px; border:1px solid var(--border); border-radius:10px }
+
+    /* ===== 訂單明細 Dialog ===== */
+    dialog.modal{
+      border:1px solid var(--border);
+      border-radius:16px;
+      padding:0;
+      width:min(900px, 95vw);
+      max-height:90vh;
+      overflow:auto;
+    }
+    .modal .head{
+      display:flex; align-items:center; justify-content:space-between;
+      padding:12px 16px; background:var(--head); color:var(--head-text);
+      position:sticky; top:0;
+    }
+    .modal .body{ padding:16px; background:var(--panel) }
+    .modal .section{ margin-bottom:16px }
+    .modal h3{ margin:0 0 8px }
+    .modal .kv{ display:grid; grid-template-columns:140px 1fr; row-gap:6px; column-gap:12px; font-size:14px }
+    .modal .kv .k{ color:var(--muted) }
+    .modal .totals{ display:flex; gap:16px; flex-wrap:wrap; font-weight:700 }
+    .modal .items-table{ width:100%; border-collapse:collapse; font-size:14px }
+    .modal .items-table th,.modal .items-table td{ padding:10px 8px; border-bottom:1px solid var(--border) }
   </style>
 </head>
 <body>
@@ -125,7 +147,7 @@
                 <th>項目數</th>
                 <th>金額</th>
                 <th>狀態</th>
-                <th style="width:180px">動作</th>
+                <th style="width:220px">動作</th>
               </tr>
             </thead>
             <tbody id="tbodyOrders"></tbody>
@@ -158,25 +180,37 @@
     </div>
   </div>
 
+  <!-- 訂單明細對話框 -->
+  <dialog id="dlgOrder" class="modal">
+    <div class="head">
+      <div id="dlgTitle"><strong>訂單明細</strong></div>
+      <div class="flex">
+        <button id="btnPrint" class="btn ghost">列印</button>
+        <button id="btnCloseDlg" class="btn ghost">關閉</button>
+      </div>
+    </div>
+    <div class="body" id="dlgBody"><!-- 由 JS 動態填入 --></div>
+  </dialog>
+
   <script type="module">
     // ===== 1) 初始化 Firebase =====
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
     import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
     import {
       getFirestore, collection, query, orderBy, onSnapshot, getDocs,
-      where, limit, startAfter, doc, updateDoc, deleteDoc, serverTimestamp
+      doc, getDoc, updateDoc, deleteDoc, serverTimestamp
     } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
-    // TODO: ⚠️ 將下方替換為你的 Firebase 設定（可複製 index.html 內已使用的設定）
+    // ⚠️ 你的 Firebase 設定
     const firebaseConfig = {
-  apiKey: "AIzaSyByf-Dt9Yiqxx-iKEHdlSHOaOLSDPB89qY",
-  authDomain: "plus2r-taichung.firebaseapp.com",
-  projectId: "plus2r-taichung",
-  storageBucket: "plus2r-taichung.appspot.com",
-  messagingSenderId: "163462804695",
-  appId: "1:163462804695:web:6c915b616d02d167f7ec92",
-  measurementId: "G-0L97P1Y9HZ"
-};
+      apiKey: "AIzaSyByf-Dt9Yiqxx-iKEHdlSHOaOLSDPB89qY",
+      authDomain: "plus2r-taichung.firebaseapp.com",
+      projectId: "plus2r-taichung",
+      storageBucket: "plus2r-taichung.appspot.com",
+      messagingSenderId: "163462804695",
+      appId: "1:163462804695:web:6c915b616d02d167f7ec92",
+      measurementId: "G-0L97P1Y9HZ"
+    };
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
@@ -195,7 +229,7 @@
 
     const tabButtons = document.querySelectorAll('.tab');
     const viewOrders = document.getElementById('view-orders');
-    const viewCustomers = document.getElementById('view-customers');
+       const viewCustomers = document.getElementById('view-customers');
 
     const tbodyOrders = document.getElementById('tbodyOrders');
     const tbodyCustomers = document.getElementById('tbodyCustomers');
@@ -206,6 +240,17 @@
 
     const qCustomer = document.getElementById('qCustomer');
     const btnRefreshCustomers = document.getElementById('btnRefreshCustomers');
+
+    // ===== 快取 & 對話框 =====
+    const orderCache = new Map(); // id -> data
+    const dlgOrder   = document.getElementById('dlgOrder');
+    const dlgTitle   = document.getElementById('dlgTitle');
+    const dlgBody    = document.getElementById('dlgBody');
+    const btnCloseDlg= document.getElementById('btnCloseDlg');
+    const btnPrint   = document.getElementById('btnPrint');
+
+    btnCloseDlg.addEventListener('click', ()=> dlgOrder.close());
+    btnPrint.addEventListener('click', ()=> window.print());
 
     // ===== 3) 事件：登入 / 登出 =====
     btnSignIn.addEventListener('click', async () => {
@@ -234,6 +279,7 @@
         const tab = btn.getAttribute('data-tab');
         viewOrders.style.display = (tab==='orders') ? '' : 'none';
         viewCustomers.style.display = (tab==='customers') ? '' : 'none';
+        if (tab === 'customers') loadCustomers();
       });
     });
 
@@ -249,7 +295,6 @@
         if (unsubOrders) { unsubOrders(); unsubOrders = null; }
         return;
       }
-      const token = await user.getIdTokenResult();
       whoami.textContent = `目前登入：${user.email ?? '(沒有 email)'}`;
       btnSignOut.style.display = '';
 
@@ -267,7 +312,22 @@
       const created = o.createdAt?.toDate?.() ? o.createdAt.toDate() : null;
       const when = created ? created.toLocaleString() : '-';
       const itemsCount = Array.isArray(o.items) ? o.items.length : 0;
-      const total = (o.totals?.grand ?? '').toString();
+      const fromCentsInt = v => {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.round(n) : null; // *_Cents 已是「元」的整數
+};
+
+let total;
+const grandInt = fromCentsInt(o.totals?.grandCents);
+if (grandInt != null) {
+  total = grandInt.toLocaleString();
+} else if (o.totals?.grand != null) {
+  const num = parseInt(String(o.totals.grand).replace(/[^\d-]/g, ''), 10);
+  total = Number.isNaN(num) ? '-' : num.toLocaleString();
+} else {
+  total = '-';
+}
+
       const status = o.status ?? '(未設定)';
       const cust = o.customer ?? {};
 
@@ -285,15 +345,27 @@
         <td>${total}</td>
         <td><span class="pill">${status}</span></td>
         <td>
-          <button class="btn" data-edit="${id}">編輯</button>
+          <button class="btn" data-view="${id}">查看</button>
+          <button class="btn" data-edit="${id}" style="margin-left:6px">編輯</button>
           <button class="btn danger" data-del="${id}" style="margin-left:6px">刪除</button>
         </td>
       `;
+
+      // ⭐ 雙擊整列也直接讀雲端
+      tr.addEventListener('dblclick', ()=> viewOrderFromServer(id));
       return tr;
     }
 
     async function bindOrdersActions(){
-      // 編輯
+      // 查看：每次都直讀 Firestore 最新資料
+      tbodyOrders.querySelectorAll('[data-view]').forEach(btn=>{
+        btn.addEventListener('click', ()=> {
+          const id = btn.getAttribute('data-view');
+          viewOrderFromServer(id);
+        });
+      });
+
+      // 編輯（若 rules 禁止 update，這裡會被擋；保留 UI）
       tbodyOrders.querySelectorAll('[data-edit]').forEach(btn=>{
         btn.addEventListener('click', async ()=>{
           const id = btn.getAttribute('data-edit');
@@ -314,7 +386,8 @@
           }
         });
       });
-      // 刪除
+
+      // 刪除（若 rules 禁止 delete，這裡會被擋；保留 UI）
       tbodyOrders.querySelectorAll('[data-del]').forEach(btn=>{
         btn.addEventListener('click', async ()=>{
           const id = btn.getAttribute('data-del');
@@ -335,8 +408,10 @@
       const q = query(col, orderBy('createdAt','desc'));
       unsubOrders = onSnapshot(q, (snap)=>{
         tbodyOrders.innerHTML = '';
+        orderCache.clear();
         snap.forEach(docSnap=>{
           const o = docSnap.data();
+          orderCache.set(docSnap.id, o);
           const tr = renderOrdersRow(docSnap.id, o);
           tbodyOrders.appendChild(tr);
         });
@@ -347,11 +422,9 @@
       });
     }
 
-    // 查詢條件（簡易前端過濾，先能用）
+    // 簡易前端過濾
     btnRefreshOrders.addEventListener('click', ()=>{
-      // 這裡先直接重載資料（若要真正後端過濾，可改成 where + composite index）
       loadOrders();
-      // 前端過濾：等 snapshot 填滿後用
       setTimeout(()=>{
         const kw = (qOrderNo.value || '').trim().toLowerCase();
         const st = (qStatus.value || '').trim().toLowerCase();
@@ -400,11 +473,11 @@
       tbodyCustomers.querySelectorAll('[data-edit-cust]').forEach(btn=>{
         btn.addEventListener('click', async ()=>{
           const id = btn.getAttribute('data-edit-cust');
-          const newName = prompt('客戶姓名');
+          const newName  = prompt('客戶姓名');
           const newPhone = prompt('客戶電話');
           const newEmail = prompt('客戶 Email');
           const patch = {};
-          if (newName && newName.trim())  patch.name = newName.trim();
+          if (newName && newName.trim())  patch.name  = newName.trim();
           if (newPhone && newPhone.trim()) patch.phone = newPhone.trim();
           if (newEmail && newEmail.trim()) patch.email = newEmail.trim();
           if (Object.keys(patch).length){
@@ -432,11 +505,195 @@
 
     btnRefreshCustomers.addEventListener('click', loadCustomers);
 
-    // 切到 Customers 分頁時載入（避免未授權就打 API）
-    document.querySelector('[data-tab="customers"]').addEventListener('click', ()=>{
-      loadCustomers();
+    // ===== 8) 金額格式 =====
+    function fmtMoney(v){
+      if (v == null) return '-';
+      const s = v.toString();
+      if (s.startsWith('$') || s.includes(',')) return s;
+      const n = Number(s);
+      if (Number.isNaN(n)) return s;
+      return n.toLocaleString();
+    }
+
+    // ===== 9) 查看：每次直讀 Firestore，並顯示 totals（小計／折扣／應付） =====
+    async function viewOrderFromServer(id){
+      try{
+        const ref = doc(db, 'orders', id);
+        const snap = await getDoc(ref);             // ⭐ 永遠讀最新
+        if(!snap.exists()){
+          alert('找不到訂單資料'); return;
+        }
+        const data = snap.data();
+        showOrderDetail(id, data);                   // 渲染會優先使用 *_Cents
+      }catch(e){
+        alert('讀取明細失敗：' + e.message);
+      }
+    }
+
+    // ===== 10) 明細渲染 =====
+    function showOrderDetail(id, o){
+    const created = o.createdAt?.toDate?.() ? o.createdAt.toDate() : null;
+    const updated = o.updatedAt?.toDate?.() ? o.updatedAt.toDate() : null;
+
+    const orderNo = o.orderNo ?? id;
+    const status  = o.status ?? '(未設定)';
+    const from    = o.from ?? '-';
+
+    const cust = o.customer ?? {};
+    const items = Array.isArray(o.items) ? o.items : [];
+
+    // 產生「內含品項」(套組/組合)清單的 HTML
+    const renderInnerDetails = (it) => {
+      // 1) 優先用 selections（前台已把 MNT 分成 罐/袋，且多數項目都在這裡）
+      if (Array.isArray(it.selections) && it.selections.length){
+        const lines = it.selections.map(s=>{
+          const up = Number(s.unitPrice ?? s.price ?? 0);
+          const qty = Number(s.qty ?? s.quantity ?? 1);
+          const pricePart = up ? `（$${fmtMoney(up)} × ${qty}）` : `（×${qty}）`;
+          return `<li>${s.name} ${pricePart}</li>`;
+        }).join('');
+        return `<ul class="muted" style="margin:6px 0 0 18px">${lines}</ul>`;
+      }
+      // 2) 備援：有些格式可能放在 items/contents
+      const kids = Array.isArray(it.items) ? it.items
+                 : Array.isArray(it.contents) ? it.contents
+                 : [];
+      if (kids.length){
+        const lines = kids.map(s=>{
+          const up = Number(s.unitPrice ?? s.price ?? 0);
+          const qty = Number(s.qty ?? s.quantity ?? 1);
+          const nm = s.name ?? s.title ?? s.productName ?? '子項目';
+          const pricePart = up ? `（$${fmtMoney(up)} × ${qty}）` : `（×${qty}）`;
+          return `<li>${nm} ${pricePart}</li>`;
+        }).join('');
+        return `<ul class="muted" style="margin:6px 0 0 18px">${lines}</ul>`;
+      }
+      return '';
+    };
+
+    // 每列金額（沿用你現有邏輯）
+    const rows = items.map((it, idx)=>{
+      const name  = it.name ?? it.title ?? it.productName ?? `項目 ${idx+1}`;
+      const qty   = Number(it.qty ?? it.quantity ?? 1);
+
+      let unit = 0, sub = 0;
+      if (it.type === 'single') {
+        unit = Number(it.unitPrice || 0);
+        sub  = unit * qty;
+      } else if (it.type === 'bundle') {
+        const unitSub  = Number(it.unitSubtotal || 0);
+        const unitDisc = Number(it.unitDiscount || 0);
+        unit = Math.max(0, unitSub - unitDisc);
+        sub  = unit * qty;
+      } else if (it.type === 'combo') {
+        unit = Number(it?.rule?.fixedPrice || 0);
+        sub  = unit * qty;
+      } else {
+        const upNum = Number((it.price ?? it.unitPrice ?? it.unit ?? 0).toString().replace(/[^\d.]/g,''));
+        unit = upNum;
+        sub  = typeof it.subtotal === 'number' ? it.subtotal : (unit * qty || 0);
+      }
+      return { name, qty, up: unit, sub, raw: it, inner: renderInnerDetails(it) };
     });
 
+    // totals 優先 *_Cents，否則回退 rows 加總（沿用你現有邏輯）
+    const totals = o.totals ?? {};
+    const centsToInt = (n) => {
+      const x = Number(n);
+      return Number.isFinite(x) ? Math.round(x) : 0; // *_Cents 是「元」
+    };
+    const subtotalNum = (() => {
+      if (totals.subtotalCents != null) return centsToInt(totals.subtotalCents);
+      if (typeof totals.subtotal === 'number') return totals.subtotal;
+      const s = (totals.subtotal ?? '').toString().replace(/[^\d.]/g,'');
+      return s ? Number(s) : rows.reduce((a,b)=>a + (b.sub||0), 0);
+    })();
+    const discountNum = (() => {
+      if (totals.discountCents != null) return centsToInt(totals.discountCents);
+      const d = totals.discount ?? 0;
+      return (typeof d === 'number') ? d : (Number((d||'').toString().replace(/[^\d.-]/g,'')) || 0);
+    })();
+    const grandNum = (() => {
+      if (totals.grandCents != null) return centsToInt(totals.grandCents);
+      if (typeof totals.grand === 'number') return totals.grand;
+      const g = (totals.grand ?? '').toString().replace(/[^\d.]/g,'');
+      return g ? Number(g) : Math.max(0, subtotalNum - discountNum);
+    })();
+
+    // 標題
+    dlgTitle.innerHTML = `
+      <strong>訂單明細</strong>
+      <span class="pill" style="margin-left:8px">${status}</span>
+      <span class="mono" style="margin-left:12px">${orderNo}</span>
+    `;
+
+    // 內容（在 name 欄位下方插入 inner）
+    dlgBody.innerHTML = `
+      <div class="section">
+        <h3>基本資訊</h3>
+        <div class="kv">
+          <div class="k">建立時間</div><div>${created ? created.toLocaleString() : '-'}</div>
+          <div class="k">最後更新</div><div>${updated ? updated.toLocaleString() : '-'}</div>
+          <div class="k">來源</div><div>${from}</div>
+          <div class="k">文件 ID</div><div class="mono">${id}</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>顧客資訊</h3>
+        <div class="kv">
+          <div class="k">姓名</div><div>${cust.name ?? '-'}</div>
+          <div class="k">電話</div><div>${cust.phone ?? '-'}</div>
+          <div class="k">Email</div><div>${cust.email ?? '-'}</div>
+          ${cust.address ? `<div class="k">地址</div><div>${cust.address}</div>` : ``}
+          ${cust.note ? `<div class="k">備註</div><div>${cust.note}</div>` : ``}
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>購物車項目（${rows.length}）</h3>
+        <table class="items-table">
+          <thead>
+            <tr>
+              <th style="width:56px">#</th>
+              <th>品項</th>
+              <th style="width:120px; text-align:right">單價</th>
+              <th style="width:90px; text-align:right">數量</th>
+              <th style="width:140px; text-align:right">小計</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map((r,i)=>`
+              <tr>
+                <td class="mono">${i+1}</td>
+                <td>
+                  <div>${r.name}</div>
+                  ${r.raw.spec || r.raw.variant ? `<div class="muted" style="font-size:12px">規格：${r.raw.spec ?? r.raw.variant}</div>` : ``}
+                  ${r.raw.note ? `<div class="muted" style="font-size:12px">備註：${r.raw.note}</div>` : ``}
+                  ${r.inner}
+                </td>
+                <td style="text-align:right">$${fmtMoney(r.up)}</td>
+                <td style="text-align:right">${r.qty}</td>
+                <td style="text-align:right">$${fmtMoney(r.sub)}</td>
+              </tr>
+            `).join('')}
+            ${rows.length === 0 ? `<tr><td colspan="5" class="muted" style="text-align:center">（此訂單沒有 items）</td></tr>` : ``}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="section">
+        <h3>金額</h3>
+        <div class="totals">
+          <div>應付：<span class="mono">$${fmtMoney(grandNum)}</span></div>
+        </div>
+        <div class="muted" style="margin-top:6px;font-size:12px">（以上金額優先採用 Firestore 文件中的 <code>subtotalCents/discountCents/grandCents</code>）</div>
+      </div>
+    `;
+
+    if (typeof dlgOrder.showModal === 'function') dlgOrder.showModal();
+    else dlgOrder.setAttribute('open','');
+  }
   </script>
 </body>
 </html>
